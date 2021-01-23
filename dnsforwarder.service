@@ -1,0 +1,10 @@
+[Unit]
+Description=Fix for Telcel DNS blocking
+After=sys-subsystem-net-devices-usb0.device
+Wants=sys-subsystem-net-devices-usb0.device
+[Service]
+ExecStartPre=ip link set usb0 up
+ExecStartPre=dhclient usb0
+ExecStart=/usr/src/jcomeauictx/dnsforwarder/forward.py
+[Install]
+WantedBy=multi-user.target
