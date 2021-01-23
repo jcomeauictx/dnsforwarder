@@ -1,9 +1,9 @@
-#!/usr/bin/python
+#!/usr/bin/python -OO
 '''
 forward.py -- service to bypass telmex DNS blocking by forwarding to opendns
 
-opendns listens on port 443 in addition to 53 and 5353, in both udp and tcp
-protocols. telmex blocks all of the above except for tcp:443, which it must
+Opendns listens on port 443 in addition to 53 and 5353, in both udp and tcp
+protocols. Telmex blocks all of the above except for tcp:443, which it must
 pass for web traffic.
 
 DNS queries over TCP have two additional bytes prepended, the length of the
