@@ -6,5 +6,6 @@ After=sys-subsystem-net-devices-usb0.device
 ExecStartPre=ip link set usb0 up
 ExecStartPre=dhclient usb0
 ExecStart=$PWD/forward.py
+Restart=Always
 [Install]
 WantedBy=multi-user.target
