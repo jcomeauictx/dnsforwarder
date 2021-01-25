@@ -1,6 +1,8 @@
-install: /etc/systemd/system/dnsforwarder.service
+SYSTEMD := /etc/systemd/system
+export
+install: $(SYSTEMD)/dnsforwarder.service $(SYSTEMD)/usbtether.service
 	sudo systemctl daemon-reload
+	sudo systemctl enable usbtether
 	sudo systemctl enable dnsforwarder
-	sudo systemctl start dnsforwarder &  # waits for tun0 to come online
 /etc/systemd/system/%: %.template
 	envsubst < $< | sudo tee $@

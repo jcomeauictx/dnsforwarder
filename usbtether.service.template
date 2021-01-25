@@ -1,0 +1,10 @@
+[Unit]
+Description=Bring up usb0 after cellular phone tether is detected
+BindsTo=sys-subsystem-net-devices-usb0.device
+After=sys-subsystem-net-devices-usb0.device
+[Service]
+ExecStartPre=ip link set usb0 up
+ExecStart=dhclient usb0
+ExecStopPost=-dhclient -r usb0
+[Install]
+WantedBy=multi-user.target

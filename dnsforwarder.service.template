@@ -1,12 +1,10 @@
 [Unit]
 Description=Fix for Telcel DNS blocking
-BindsTo=sys-subsystem-net-devices-usb0.device
-After=sys-subsystem-net-devices-usb0.device
+BindsTo=usbtether.service
+After=usbtether.service
 [Service]
-ExecStartPre=ip link set usb0 up
-ExecStartPre=dhclient usb0
 ExecStart=$PWD/forward.py
-ExecStopPost=dhclient -x usb0
 Restart=always
+RestartSec=10
 [Install]
 WantedBy=multi-user.target
