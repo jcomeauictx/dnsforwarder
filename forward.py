@@ -53,16 +53,15 @@ def unpack(message):
     for record in range(qdcount + ancount + nscount + arcount):
         # get qname, qtype, qclass for each record
         records.append([[]])
-        length, remainder = remainder[0], remainder[1:]
-        if length:
+        while ord(remainder[0:1]):
+            length, remainder = ord(remainder[0:1]), remainder[1:]
             logging.debug('length: %d, remainder: %r', length, remainder)
             records[-1][0].append(remainder[:length].decode())
             remainder = remainder[length:]
-        else:
-            qtype, remainder = remainder[:2], remainder[2:]
-            records[-1].append(int.from_bytes(qtype, 'big'))
-            qclass, remainder = remainder[:2], remainder[2:]
-            records[-1].append(int.from_bytes(qclass, 'big'))
+        qtype, remainder = remainder[:2], remainder[2:]
+        records[-1].append(int.from_bytes(qtype, 'big'))
+        qclass, remainder = remainder[:2], remainder[2:]
+        records[-1].append(int.from_bytes(qclass, 'big'))
     return records
 
 if __name__ == '__main__':
