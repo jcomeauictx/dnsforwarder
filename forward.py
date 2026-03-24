@@ -1,4 +1,4 @@
-#!/usr/bin/python -OO
+#!/usr/bin/python3 -OO
 '''
 forward.py -- service to bypass telcel DNS blocking by forwarding to opendns
 
@@ -21,21 +21,49 @@ SERVER_PORT = '53'
 logging.basicConfig(level=logging.DEBUG if __debug__ else logging.WARN)
 
 def serve():
+    '''
+    forwards dns queries by pretending to be a local server
+    '''
     listener = socket.socket(socket.AF_INET, SERVER_SOCKETTYPE)
     listener.bind((SERVER, int(SERVER_PORT)))
     logging.info('dnsforwarder bound to %s:%s', SERVER, SERVER_PORT)
     while True:
         query, sender = listener.recvfrom(1024)
-        logging.debug('query: %r, sender: %r', query, sender)
+        logging.debug('query: %r, sender: %r', unpack(query), sender)
         upstream = socket.socket(socket.AF_INET, OPENDNS_SOCKETTYPE)
         upstream.bind(('0.0.0.0', 0))
         upstream.connect((OPENDNS, int(OPENDNS_PORT)))
         length = struct.pack('>h', len(query))
         upstream.send(length + query)
         response = upstream.recv(1024)
-        logging.debug('response: %r', response)
+        logging.debug('response: %r', unpack(response))
         upstream.close()
         listener.sendto(response[2:], sender)
+
+def unpack(message):
+    '''
+    break dns query or response into its component parts
+    '''
+    header, remainder = message[:12], message[12:]
+    qdcount = int.from_bytes(header[4:6], 'big')
+    ancount = int.from_bytes(header[6:8], 'big')
+    nscount = int.from_bytes(header[8:10], 'big')
+    arcount = int.from_bytes(header[10:12], 'big')
+    records = []
+    for record in range(qdcount + ancount + nscount + arcount):
+        # get qname, qtype, qclass for each record
+        records.append([[]])
+        length, remainder = remainder[0], remainder[1:]
+        if length:
+            logging.debug('length: %d, remainder: %r', length, remainder)
+            records[-1][0].append(remainder[:length].decode())
+            remainder = remainder[length:]
+        else:
+            qtype, remainder = remainder[:2], remainder[2:]
+            records[-1].append(int.from_bytes(qtype, 'big'))
+            qclass, remainder = remainder[:2], remainder[2:]
+            records[-1].append(int.from_bytes(qclass, 'big'))
+    return records
 
 if __name__ == '__main__':
     serve()
