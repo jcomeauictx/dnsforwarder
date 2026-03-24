@@ -36,7 +36,7 @@ def serve():
         length = struct.pack('>h', len(query))
         upstream.send(length + query)
         response = upstream.recv(1024)
-        logging.debug('response: %r', unpack(response))
+        logging.debug('response: %r', unpack(response[2:]))
         upstream.close()
         listener.sendto(response[2:], sender)
 
@@ -58,6 +58,7 @@ def unpack(message):
             logging.debug('length: %d, remainder: %r', length, remainder)
             records[-1][0].append(remainder[:length].decode())
             remainder = remainder[length:]
+        remainder = remainder[1:]  # nip zero-byte marking end of qname
         qtype, remainder = remainder[:2], remainder[2:]
         records[-1].append(int.from_bytes(qtype, 'big'))
         qclass, remainder = remainder[:2], remainder[2:]
