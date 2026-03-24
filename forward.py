@@ -23,6 +23,7 @@ logging.basicConfig(level=logging.DEBUG if __debug__ else logging.WARN)
 def serve():
     listener = socket.socket(socket.AF_INET, SERVER_SOCKETTYPE)
     listener.bind((SERVER, int(SERVER_PORT)))
+    logging.info('dnsforwarder bound to %s:%s', SERVER, SERVER_PORT)
     while True:
         query, sender = listener.recvfrom(1024)
         logging.debug('query: %r, sender: %r', query, sender)
