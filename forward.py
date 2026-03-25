@@ -36,7 +36,7 @@ def serve():
         length = struct.pack('>h', len(query))
         upstream.send(length + query)
         response = upstream.recv(1024)
-        logging.debug('response: %r', unpack(response[2:]))
+        logging.debug('response: %r', response)
         upstream.close()
         listener.sendto(response[2:], sender)
 

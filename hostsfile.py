@@ -9,14 +9,17 @@ import sys, os, logging
 
 logging.basicConfig(level=logging.DEBUG if __debug__ else logging.INFO)
 
-def hostsfile:
+def hostsfile():
     '''
     read in /etc/hosts and return a dict
     '''
     with open('/etc/hosts') as infile:
         hosts = {}
         for line in infile:
-            data, comment = line.split('#', 1)
+            if '#' in line:
+                data, comment = line.split('#', 1)
+            else:
+                data, comment = line, None
             logging.debug('data: %r, comment: %r', data, comment)
             parts = data.split()
             if len(parts) < 2:
@@ -25,10 +28,11 @@ def hostsfile:
                 for hostname in parts[1:]:
                     if hostname in hosts:
                         logging.warn(
-                            'overriding entry %s %s with %s'
+                            'overriding entry %s %s with %s',
                             hostname, hosts[hostname], parts[0]
+                        )
                     hosts[hostname] = parts[0]
     return hosts
 
 if __name__ == '__main__':
-    hostfile(*sys.argv[1:])
+    print(hostsfile(*sys.argv[1:]))
