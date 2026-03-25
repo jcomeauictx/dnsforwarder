@@ -12,11 +12,19 @@ this documented anywhere, but observed it in `ngrep -x` output.
 '''
 import sys, os, socket, struct, logging  # pylint: disable=multiple-imports
 try:
-    short = int.from_bytes
+    int.from_bytes
+    def short(packed, order='big'):
+        '''
+        unpack unsigned network short with python3
+
+        python3.9 did not have a default `order` parameter,
+        and it was named `byteorder`
+        '''
+        return int.from_bytes(packed, order)
 except AttributeError:
     def short(packed, order='big'):
         '''
-        unpack unsigned network short on python2
+        unpack unsigned network short with python2
         '''
         if len(packed) != 2 or order != 'big':
             raise NotImplementedError('short() limited to network shorts')
