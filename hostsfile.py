@@ -13,6 +13,8 @@ def hostsfile():
     '''
     read in /etc/hosts and return a dict
     '''
+    # FIXME: according to hosts manpage, it is allowed to have two entries
+    # for each hostname, one for each version of the IP protocol (v4 and v6)
     with open('/etc/hosts') as infile:
         hosts = {}
         for line in infile:
