@@ -80,6 +80,7 @@ def unpack(message):
     >>> unpack(b'\xecy\x01\x00\x00\x01\x00\x00\x00\x00\x00\x00\x05apple\x03com\x00\x00\x1c\x00\x01')
     [['apple.com', 28, 1]]
     >>> unpack(b'\x007\xecy\x81\x80\x00\x01\x00\x01\x00\x00\x00\x00\x05apple\x03com\x00\x00\x1c\x00\x01\xc0\x0c\x00\x1c\x00\x01\x00\x00\x03\x07\x00\x10& \x01I\n\xf0\x00\x00\x00\x00\x00\x00\x00\x00\x00\x10'[2:])
+    [['apple.com', 28, 1], ['apple.com', 7168, 256, 469762304, 3, b'\x07\x00\x10']]
     '''
     qdcount = netint(message[4:6])
     ancount = netint(message[6:8])
@@ -117,9 +118,9 @@ def unpack_name(message, offset, parts=None):
     parts = parts or []
     count = ord(message[offset:offset + 1])
     if count & 0xc0 == 0xc0:
-        offset = (count & 0x3f) << 8 + ord(message[offset + 1:offset + 2])
-        logging.debug('found name pointer to offset %d', offset)
-        name = unpack_name(message, offset, parts)[1]
+        reference = netint(message[offset:offset + 2]) & 0x3ff
+        logging.debug('found name pointer to offset %d', reference)
+        name = unpack_name(message, reference, parts)[1]
         return unpack_name(message, offset + 2, [name])
     if 0 < count < 0x40:
         parts.append(message[offset + 1:offset + 1 + count].decode())
