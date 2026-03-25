@@ -12,7 +12,7 @@ this documented anywhere, but observed it in `ngrep -x` output.
 '''
 import sys, os, socket, struct, logging  # pylint: disable=multiple-imports
 try:
-    int.from_bytes
+    int.from_bytes  # pylint: disable=pointless-statement
     def short(packed, order='big'):
         '''
         unpack unsigned network short with python3
@@ -51,7 +51,7 @@ def serve(port=SERVER_PORT):
             listener.bind((SERVER, int(port)))
         except OSError:
             logging.error(
-                'Port %s already in use; is avahi-daemon running?' % port
+                'Port %s already in use; is avahi-daemon running?', port
             )
             sys.exit(1)
     logging.info('dnsforwarder bound to %s:%s', SERVER, port)
@@ -122,7 +122,7 @@ def unpack_name(message, offset, parts=None):
     elif count == 0:
         return (offset + 1, '.'.join(parts))
     else:
-        raise ValueError('count of 0x%02x not supported', count)
+        raise ValueError('count of 0x%02x not supported' % count)
 
 if __name__ == '__main__':
     serve()
