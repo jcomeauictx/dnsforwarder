@@ -13,22 +13,24 @@ this documented anywhere, but observed it in `ngrep -x` output.
 import sys, os, socket, struct, logging  # pylint: disable=multiple-imports
 try:
     int.from_bytes  # pylint: disable=pointless-statement
-    def short(packed, order='big'):
+    def netint(packed, order='big'):
         '''
-        unpack unsigned network short with python3
+        unpack unsigned network short or long with python3
 
         python3.9 did not have a default `order` parameter,
         and it was named `byteorder`
         '''
         return int.from_bytes(packed, order)
 except AttributeError:
-    def short(packed, order='big'):
+    def netint(packed, order='big'):
         '''
-        unpack unsigned network short with python2
+        unpack unsigned network short or long with python2
         '''
-        if len(packed) != 2 or order != 'big':
-            raise NotImplementedError('short() limited to network shorts')
-        return struct.unpack('>H', packed)[0]
+        formats = {2: '>H', 4: '>L'}
+        if len(packed) not in  [2, 4] or order != 'big':
+            raise NotImplementedError('netint() limited to network ints')
+        return struct.unpack(formats[len(packed)], packed)[0]
+
 OPENDNS = os.getenv('OPENDNS', '208.67.222.222')
 OPENDNS_SOCKETTYPE = socket.SOCK_STREAM  # tcp
 OPENDNS_PORT = '443'
@@ -72,16 +74,17 @@ def serve(port=SERVER_PORT):
         listener.sendto(response[2:], sender)
 
 def unpack(message):
+    # pylint: disable=line-too-long
     r'''
     break dns query or response into its component parts
     >>> unpack(b'\xecy\x01\x00\x00\x01\x00\x00\x00\x00\x00\x00\x05apple\x03com\x00\x00\x1c\x00\x01')
     [['apple.com', 28, 1]]
     >>> unpack(b'\x007\xecy\x81\x80\x00\x01\x00\x01\x00\x00\x00\x00\x05apple\x03com\x00\x00\x1c\x00\x01\xc0\x0c\x00\x1c\x00\x01\x00\x00\x03\x07\x00\x10& \x01I\n\xf0\x00\x00\x00\x00\x00\x00\x00\x00\x00\x10'[2:])
     '''
-    qdcount = short(message[4:6])
-    ancount = short(message[6:8])
-    nscount = short(message[8:10])
-    arcount = short(message[10:12])
+    qdcount = netint(message[4:6])
+    ancount = netint(message[6:8])
+    nscount = netint(message[8:10])
+    arcount = netint(message[10:12])
     logging.debug({'qdcount': qdcount, 'ancount': ancount,
                    'nscount': nscount, 'arcount': arcount})
     records = []
@@ -91,16 +94,18 @@ def unpack(message):
                       record, message[offset:], len(message[offset:]))
         # get qname, qtype, qclass for each record
         offset, name = unpack_name(message, offset)
-        qtype = short(message[offset:offset + 2])
-        qclass = short(message[offset + 2:offset + 4])
-        offset += 4
-        logging.debug('unprocessed remainder: %r', message[offset:])
+        qtype = netint(message[offset:offset + 2])
+        qclass = netint(message[offset + 2:offset + 4])
         if record < qdcount:
             records.append([name, qtype, qclass])
-            continue
+            offset += 4
         else:
-            records.append([name, qtype, qclass])
-            break  # FIXME: add remaining fields here
+            ttl = netint(message[offset:offset + 4])
+            rdlength = netint(message[offset + 4:offset + 6])
+            rdata = message[offset + 6:offset + 6 + rdlength]
+            records.append([name, qtype, qclass, ttl, rdlength, rdata])
+            offset += 6 + rdlength
+        logging.debug('unprocessed remainder: %r', message[offset:])
     return records
 
 def unpack_name(message, offset, parts=None):
@@ -116,13 +121,13 @@ def unpack_name(message, offset, parts=None):
         logging.debug('found name pointer to offset %d', offset)
         name = unpack_name(message, offset, parts)[1]
         return unpack_name(message, offset + 2, [name])
-    elif 0 < count < 0x40:
+    if 0 < count < 0x40:
         parts.append(message[offset + 1:offset + 1 + count].decode())
         return unpack_name(message, offset + 1 + count, parts)
-    elif count == 0:
+    if count == 0:
         return (offset + 1, '.'.join(parts))
-    else:
-        raise ValueError('count of 0x%02x not supported' % count)
+    # pylint: disable=consider-using-f-string
+    raise ValueError('count of 0x%02x not supported' % count)
 
 if __name__ == '__main__':
     serve()
