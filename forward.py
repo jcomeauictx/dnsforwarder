@@ -129,5 +129,18 @@ def unpack_name(message, offset, parts=None):
     # pylint: disable=consider-using-f-string
     raise ValueError('count of 0x%02x not supported' % count)
 
+def pack_name(dotname):
+    r'''
+    convert dotted name into DNS name format, including trailing null
+
+    >>> pack_name('apple.com')
+    b'\x05apple\x03com\x00'
+    '''
+    parts = dotname.split('.')
+    name = b''
+    for part in parts:
+        name += (chr(len(part)) + part).encode()
+    return name + b'\0'
+
 if __name__ == '__main__':
     serve()
