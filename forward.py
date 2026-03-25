@@ -69,13 +69,14 @@ def unpack(message):
     nscount = short(message[8:10], 'big')
     arcount = short(message[10:12], 'big')
     records = []
+    offset = 12
     for record in range(qdcount + ancount + nscount + arcount):
         # get qname, qtype, qclass for each record
-        offset = 12
         offset, name = unpack_name(message, offset)
         qtype = short(message[offset:offset + 2])
         qclass = short(message[offset + 2:offset + 4])
-        logging.debug('unprocessed remainder: %r', message[offset + 4:])
+        offset += 4
+        logging.debug('unprocessed remainder: %r', message[offset:])
         if record < qdcount:
             records.append([name, qtype, qclass])
             continue
@@ -93,6 +94,7 @@ def unpack_name(message, offset, parts=None):
     count = ord(message[offset:offset + 1])
     if count & 0xc0 == 0xc0:
         offset = (count & 0x3f) << 8 + ord(message[offset + 1:offset + 2])
+        logging.debug('found name pointer to offset %d', offset)
         return unpack_name(message, offset, parts)
     elif 0 < count < 0x40:
         parts.append(message[offset + 1:offset + 1 + count].decode())
