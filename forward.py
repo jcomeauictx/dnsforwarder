@@ -68,9 +68,13 @@ def unpack(message):
     ancount = short(message[6:8], 'big')
     nscount = short(message[8:10], 'big')
     arcount = short(message[10:12], 'big')
+    logging.debug({'qdcount': qdcount, 'ancount': ancount,
+                   'nscount': nscount, 'arcount': arcount})
     records = []
     offset = 12
     for record in range(qdcount + ancount + nscount + arcount):
+        logging.debug('processing record %d, message %r, length %d',
+                      record, message, len(message))
         # get qname, qtype, qclass for each record
         offset, name = unpack_name(message, offset)
         qtype = short(message[offset:offset + 2])
