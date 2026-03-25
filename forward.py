@@ -57,7 +57,10 @@ def serve(port=SERVER_PORT):
     logging.info('dnsforwarder bound to %s:%s', SERVER, port)
     while True:
         query, sender = listener.recvfrom(1024)
-        logging.debug('query: %r, sender: %r', unpack(query), sender)
+        logging.debug(
+            'query: %r (%s), sender: %r',
+            query, unpack(query), sender
+        )
         upstream = socket.socket(socket.AF_INET, OPENDNS_SOCKETTYPE)
         upstream.bind(('0.0.0.0', 0))
         upstream.connect((OPENDNS, int(OPENDNS_PORT)))
