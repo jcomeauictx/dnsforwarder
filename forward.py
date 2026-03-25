@@ -10,7 +10,17 @@ DNS queries over TCP have two additional bytes prepended, the length of the
 packet not counting the two bytes of the length field itself. I did not find
 this documented anywhere, but observed it in `ngrep -x` output.
 '''
-import sys, os, socket, struct, logging
+import sys, os, socket, struct, logging  # pylint: disable=multiple-imports
+try:
+    short = int.from_bytes
+except AttributeError:
+    def short(packed, order='big'):
+        '''
+        unpack unsigned network short on python2
+        '''
+        if len(packed) != 2 or order != 'big':
+            raise NotImplementedError('short() limited to network shorts')
+        return struct.unpack('>H', packed)
 OPENDNS = os.getenv('OPENDNS', '208.67.222.222')
 OPENDNS_SOCKETTYPE = socket.SOCK_STREAM  # tcp
 OPENDNS_PORT = '443'
@@ -45,10 +55,10 @@ def unpack(message):
     break dns query or response into its component parts
     '''
     header, remainder = message[:12], message[12:]
-    qdcount = int.from_bytes(header[4:6], 'big')
-    ancount = int.from_bytes(header[6:8], 'big')
-    nscount = int.from_bytes(header[8:10], 'big')
-    arcount = int.from_bytes(header[10:12], 'big')
+    qdcount = short(header[4:6], 'big')
+    ancount = short(header[6:8], 'big')
+    nscount = short(header[8:10], 'big')
+    arcount = short(header[10:12], 'big')
     records = []
     for record in range(qdcount + ancount + nscount + arcount):
         # get qname, qtype, qclass for each record
@@ -60,9 +70,9 @@ def unpack(message):
             remainder = remainder[length:]
         remainder = remainder[1:]  # nip zero-byte marking end of qname
         qtype, remainder = remainder[:2], remainder[2:]
-        records[-1].append(int.from_bytes(qtype, 'big'))
+        records[-1].append(short(qtype, 'big'))
         qclass, remainder = remainder[:2], remainder[2:]
-        records[-1].append(int.from_bytes(qclass, 'big'))
+        records[-1].append(short(qclass, 'big'))
     return records
 
 if __name__ == '__main__':
