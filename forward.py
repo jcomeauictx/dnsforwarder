@@ -30,13 +30,23 @@ SERVER_PORT = '53'
 
 logging.basicConfig(level=logging.DEBUG if __debug__ else logging.WARN)
 
-def serve():
+def serve(port=SERVER_PORT):
     '''
     forwards dns queries by pretending to be a local server
     '''
     listener = socket.socket(socket.AF_INET, SERVER_SOCKETTYPE)
-    listener.bind((SERVER, int(SERVER_PORT)))
-    logging.info('dnsforwarder bound to %s:%s', SERVER, SERVER_PORT)
+    try:
+        listener.bind((SERVER, int(port)))
+    except PermissionError:
+        port *= 2  # try with port 5353
+        try:
+            listener.bind((SERVER, int(port)))
+        except OSError:
+            logging.error(
+                'Port %s already in use; is avahi-daemon running?' % port
+            )
+            sys.exit(1)
+    logging.info('dnsforwarder bound to %s:%s', SERVER, port)
     while True:
         query, sender = listener.recvfrom(1024)
         logging.debug('query: %r, sender: %r', unpack(query), sender)
@@ -54,26 +64,42 @@ def unpack(message):
     '''
     break dns query or response into its component parts
     '''
-    header, remainder = message[:12], message[12:]
-    qdcount = short(header[4:6], 'big')
-    ancount = short(header[6:8], 'big')
-    nscount = short(header[8:10], 'big')
-    arcount = short(header[10:12], 'big')
+    qdcount = short(message[4:6], 'big')
+    ancount = short(message[6:8], 'big')
+    nscount = short(message[8:10], 'big')
+    arcount = short(message[10:12], 'big')
     records = []
     for record in range(qdcount + ancount + nscount + arcount):
         # get qname, qtype, qclass for each record
-        records.append([[]])
-        while ord(remainder[0:1]):
-            length, remainder = ord(remainder[0:1]), remainder[1:]
-            logging.debug('length: %d, remainder: %r', length, remainder)
-            records[-1][0].append(remainder[:length].decode())
-            remainder = remainder[length:]
-        remainder = remainder[1:]  # nip zero-byte marking end of qname
-        qtype, remainder = remainder[:2], remainder[2:]
-        records[-1].append(short(qtype, 'big'))
-        qclass, remainder = remainder[:2], remainder[2:]
-        records[-1].append(short(qclass, 'big'))
+        offset = 12
+        offset, name = unpack_name(message, offset)
+        qtype = short(message[offset:offset + 2])
+        qclass = short(message[offset + 2:offset + 4])
+        if record < qdcount:
+            records.append([name, qtype, qclass])
+            continue
+        else:
+            break  # FIXME: add remaining fields here
     return records
+
+def unpack_name(message, offset, parts=None):
+    '''
+    unpack the "name" portion of a message
+
+    return the new offset, and the name as a dotted string
+    '''
+    parts = parts or []
+    count = ord(message[offset:offset + 1])
+    if count & 0xc0 == 0xc0:
+        offset = (count & 0x3f) << 8 + ord(message[offset + 1:offset + 2])
+        return unpack_name(message, offset, parts)
+    elif 0 < count < 0x40:
+        parts.append(message[index + 1:index + 1 + count].decode())
+        return unpack_name(message, offset + 1 + count)
+    elif count == 0:
+        return (offset + 1, '.'.join(parts))
+    else:
+        raise ValueError('count of 0x%02x not supported', count)
 
 if __name__ == '__main__':
     serve()
