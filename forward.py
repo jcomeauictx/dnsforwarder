@@ -74,16 +74,14 @@ def serve(port=SERVER_PORT):
 def unpack(message):
     r'''
     break dns query or response into its component parts
-    >>> unpack(b'\x05apple\x03com\x00\x00\x1c\x00\x01')
-    [[u'apple.com', 28, 1]], sender: ('127.0.0.1', 58218)
-    >>> unpack(b'\x0070\x01\x81\x80\x00\x01\x00\x01\x00\x00\x00\x00\x05apple\x03com\x00\x00\x1c\x00\x01\xc0\x0c\x00\x1c\x00\x01\x00\x00\x00e\x00\x10& \x01I\n\xf0\x00\x00\x00\x00\x00\x00\x00\x00\x00\x10')
-
-    >>> unpack(b'\x00<oE\x81\x80\x00\x01\x00\x01\x00\x00\x00\x00\x05e6858\x05dsce9\nakamaiedge\x03net\x00\x00\x01\x00\x01\xc0\x0c\x00\x01\x00\x01\x00\x00\x00\x14\x00\x04\x17%\x14\xf4')
+    >>> unpack(b'\xecy\x01\x00\x00\x01\x00\x00\x00\x00\x00\x00\x05apple\x03com\x00\x00\x1c\x00\x01')
+    [['apple.com', 28, 1]]
+    >>> unpack(b'\x007\xecy\x81\x80\x00\x01\x00\x01\x00\x00\x00\x00\x05apple\x03com\x00\x00\x1c\x00\x01\xc0\x0c\x00\x1c\x00\x01\x00\x00\x03\x07\x00\x10& \x01I\n\xf0\x00\x00\x00\x00\x00\x00\x00\x00\x00\x10'[2:])
     '''
-    qdcount = short(message[4:6], 'big')
-    ancount = short(message[6:8], 'big')
-    nscount = short(message[8:10], 'big')
-    arcount = short(message[10:12], 'big')
+    qdcount = short(message[4:6])
+    ancount = short(message[6:8])
+    nscount = short(message[8:10])
+    arcount = short(message[10:12])
     logging.debug({'qdcount': qdcount, 'ancount': ancount,
                    'nscount': nscount, 'arcount': arcount})
     records = []
