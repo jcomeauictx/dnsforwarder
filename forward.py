@@ -75,6 +75,7 @@ def unpack(message):
         offset, name = unpack_name(message, offset)
         qtype = short(message[offset:offset + 2])
         qclass = short(message[offset + 2:offset + 4])
+        logging.debug('unprocessed remainder: %r', message[offset + 4:])
         if record < qdcount:
             records.append([name, qtype, qclass])
             continue
@@ -95,7 +96,7 @@ def unpack_name(message, offset, parts=None):
         return unpack_name(message, offset, parts)
     elif 0 < count < 0x40:
         parts.append(message[offset + 1:offset + 1 + count].decode())
-        return unpack_name(message, offset + 1 + count)
+        return unpack_name(message, offset + 1 + count, parts)
     elif count == 0:
         return (offset + 1, '.'.join(parts))
     else:
