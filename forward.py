@@ -20,7 +20,7 @@ except AttributeError:
         '''
         if len(packed) != 2 or order != 'big':
             raise NotImplementedError('short() limited to network shorts')
-        return struct.unpack('>H', packed)
+        return struct.unpack('>H', packed)[0]
 OPENDNS = os.getenv('OPENDNS', '208.67.222.222')
 OPENDNS_SOCKETTYPE = socket.SOCK_STREAM  # tcp
 OPENDNS_PORT = '443'
