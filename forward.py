@@ -100,7 +100,8 @@ def unpack_name(message, offset, parts=None):
     if count & 0xc0 == 0xc0:
         offset = (count & 0x3f) << 8 + ord(message[offset + 1:offset + 2])
         logging.debug('found name pointer to offset %d', offset)
-        return unpack_name(message, offset, parts)
+        name = unpack_name(message, offset, parts)[1]
+        return unpack_name(message, offset + 2, [name])
     elif 0 < count < 0x40:
         parts.append(message[offset + 1:offset + 1 + count].decode())
         return unpack_name(message, offset + 1 + count, parts)
