@@ -94,7 +94,7 @@ def unpack_name(message, offset, parts=None):
         offset = (count & 0x3f) << 8 + ord(message[offset + 1:offset + 2])
         return unpack_name(message, offset, parts)
     elif 0 < count < 0x40:
-        parts.append(message[index + 1:index + 1 + count].decode())
+        parts.append(message[offset + 1:offset + 1 + count].decode())
         return unpack_name(message, offset + 1 + count)
     elif count == 0:
         return (offset + 1, '.'.join(parts))
