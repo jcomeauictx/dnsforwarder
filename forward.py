@@ -74,7 +74,7 @@ def unpack(message):
     offset = 12
     for record in range(qdcount + ancount + nscount + arcount):
         logging.debug('processing record %d, message %r, length %d',
-                      record, message, len(message))
+                      record, message[offset:], len(message[offset:]))
         # get qname, qtype, qclass for each record
         offset, name = unpack_name(message, offset)
         qtype = short(message[offset:offset + 2])
@@ -85,6 +85,7 @@ def unpack(message):
             records.append([name, qtype, qclass])
             continue
         else:
+            records.append([name, qtype, qclass])
             break  # FIXME: add remaining fields here
     return records
 
