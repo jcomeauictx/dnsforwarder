@@ -10,7 +10,8 @@ DNS queries over TCP have two additional bytes prepended, the length of the
 packet not counting the two bytes of the length field itself. I did not find
 this documented anywhere, but observed it in `ngrep -x` output.
 '''
-import sys, os, socket, struct, logging  # pylint: disable=multiple-imports
+import sys, os, socket, struct, re, logging  # pylint: disable=multiple-imports
+# pylint: disable=consider-using-f-string
 try:
     int.from_bytes  # pylint: disable=pointless-statement
     def netint(packed, order='big'):
@@ -30,6 +31,10 @@ except AttributeError:
         if len(packed) not in  [2, 4] or order != 'big':
             raise NotImplementedError('netint() limited to network ints')
         return struct.unpack(formats[len(packed)], packed)[0]
+try:
+    unichr  # pylint: disable=used-before-assignment
+except NameError:
+    unichr = chr
 
 OPENDNS = os.getenv('OPENDNS', '208.67.222.222')
 OPENDNS_SOCKETTYPE = socket.SOCK_STREAM  # tcp
@@ -188,9 +193,20 @@ def unpack_ipv6(address):
 
     >>> unpack_ipv6(b'\xfe\x80\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xbe\x03X\xff\xfeS\xa8J')
     'fe80::be03:58ff:fe53:a84a'
+    >>> [unpack_ipv6(pack_ipv6(a)) for a in ['::1', 'fe80::']]
+    ['::1', 'fe80::']
     '''
-    hextets = struct.unpack('>16H', address)
-    return hextets
+    unpacked = struct.unpack('>16H', address)
+    unistr = ''.join(map(unichr, unpacked))
+    runs = re.findall('\x00+', unistr)
+    index = None  # index to longest run of zeroes
+    stringified = ['%x' % n for n in unpacked]
+    if runs:
+        longest = max(runs, key=len)
+        index = unistr.index(longest)  # returns leftmost if a tie (good)
+        # this will produce 3 colons if somewhere in the middle
+        stringified[index:index + len(longest)] = ['', '']
+    return ':'.join(stringified).replace(':::', '::')
 
 if __name__ == '__main__':
     serve()
