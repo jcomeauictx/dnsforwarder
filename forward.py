@@ -142,5 +142,23 @@ def pack_name(dotname):
         name += (chr(len(part)) + part).encode()
     return name + b'\0'
 
+def pack_ipv4(address):
+    r'''
+    pack dot-notation IPv4 address into netint
+
+    >>> pack_ipv4('127.0.0.1')
+    b'\x7f\x00\x00\x01'
+    '''
+    return struct.pack('BBBB', *map(int, address.split('.')))
+
+def unpack_ipv4(address):
+    r'''
+    unpack netint IPv4 address to dot notation
+
+    >>> unpack_ipv4(b'\x7f\x00\x00\x01')
+    '127.0.0.1'
+    '''
+    return '.'.join(map(str, struct.unpack('BBBB', address)))
+
 if __name__ == '__main__':
     serve()
