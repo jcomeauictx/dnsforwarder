@@ -82,10 +82,11 @@ def unpack(message):
     # pylint: disable=line-too-long
     r'''
     break dns query or response into its component parts
+
     >>> unpack(b'\xecy\x01\x00\x00\x01\x00\x00\x00\x00\x00\x00\x05apple\x03com\x00\x00\x1c\x00\x01')
     [['apple.com', 28, 1]]
     >>> unpack(b'\x007\xecy\x81\x80\x00\x01\x00\x01\x00\x00\x00\x00\x05apple\x03com\x00\x00\x1c\x00\x01\xc0\x0c\x00\x1c\x00\x01\x00\x00\x03\x07\x00\x10& \x01I\n\xf0\x00\x00\x00\x00\x00\x00\x00\x00\x00\x10'[2:])
-    [['apple.com', 28, 1], ['apple.com', 28, 1, 775, 16, b'& \x01I\n\xf0\x00\x00\x00\x00\x00\x00\x00\x00\x00\x10']]
+    [['apple.com', 28, 1], ['apple.com', 28, 1, 775, 16, '2620:149:af0::10']]
     '''
     qdcount = netint(message[4:6])
     ancount = netint(message[6:8])
@@ -109,6 +110,10 @@ def unpack(message):
             ttl = netint(message[offset:offset + 4])
             rdlength = netint(message[offset + 4:offset + 6])
             rdata = message[offset + 6:offset + 6 + rdlength]
+            if (qtype, qclass, len(rdata)) == (1, 1, 4):
+                rdata = unpack_ipv4(rdata)
+            elif (qtype, qclass, len(rdata)) == (28, 1, 16):
+                rdata = unpack_ipv6(rdata)
             records.append([name, qtype, qclass, ttl, rdlength, rdata])
             offset += 6 + rdlength
         logging.debug('unprocessed remainder: %r', message[offset:])
@@ -171,32 +176,32 @@ def pack_ipv6(address):
     pack colon-notation IPv6 address into netint
 
     >>> pack_ipv6('::1')
-    b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01'
+    b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01'
 
     >>> pack_ipv6('fe80::be03:58ff:fe53:a84a')
-    b'\xfe\x80\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xbe\x03X\xff\xfeS\xa8J'
+    b'\xfe\x80\x00\x00\x00\x00\x00\x00\xbe\x03X\xff\xfeS\xa8J'
 
     >>> pack_ipv6('fe80::')
-    b'\xfe\x80\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+    b'\xfe\x80\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
     '''
     parts = address.split(':')
     while '' in parts:
         length = len(list(filter(None, parts)))
         index = parts.index('')
-        parts[index:index + 1] = ['0'] * (16 - length)
-    return struct.pack('>16H', *map(lambda n: int(n, 16), parts))
+        parts[index:index + 1] = ['0'] * (8 - length)
+    return struct.pack('>8H', *map(lambda n: int(n, 16), parts))
 
 def unpack_ipv6(address):
     # pylint: disable=line-too-long
     r'''
     convert raw 128-bit address into colon notation
 
-    >>> unpack_ipv6(b'\xfe\x80\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xbe\x03X\xff\xfeS\xa8J')
+    >>> unpack_ipv6(b'\xfe\x80\x00\x00\x00\x00\x00\x00\xbe\x03X\xff\xfeS\xa8J')
     'fe80::be03:58ff:fe53:a84a'
     >>> [unpack_ipv6(pack_ipv6(a)) for a in ['::1', 'fe80::']]
     ['::1', 'fe80::']
     '''
-    unpacked = struct.unpack('>16H', address)
+    unpacked = struct.unpack('>8H', address)
     unistr = ''.join(map(unichr, unpacked))
     runs = re.findall('\x00+', unistr)
     index = None  # index to longest run of zeroes
