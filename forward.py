@@ -11,6 +11,16 @@ packet not counting the two bytes of the length field itself. I did not find
 this documented anywhere, but observed it in `ngrep -x` output.
 '''
 import sys, os, socket, struct, re, logging  # pylint: disable=multiple-imports
+from collections import OrderedDict
+# flags
+RESPONSE = 0x8000
+OPCODE_MASK = 0x7800
+AUTHORITATIVE = 0x400
+TRUNCATION = 0x200
+RECURSION_DESIRED = 0x100
+RECURSION_AVAILABLE = 0x80
+RESERVED_MASK = 0x70
+RETURN_CODE_MASK = 0xf
 # pylint: disable=consider-using-f-string
 try:
     int.from_bytes  # pylint: disable=pointless-statement
@@ -22,6 +32,11 @@ try:
         and it was named `byteorder`
         '''
         return int.from_bytes(packed, order)
+    def intstr(unpacked, order='big', length=2):
+        '''
+        pack unsigned integer into network order
+        '''
+        return unpacked.to_bytes(length, order)
 except AttributeError:
     def netint(packed, order='big'):
         '''
@@ -31,6 +46,14 @@ except AttributeError:
         if len(packed) not in  [2, 4] or order != 'big':
             raise NotImplementedError('netint() limited to network ints')
         return struct.unpack(formats[len(packed)], packed)[0]
+    def intstr(unpacked, order='big', length=2):
+        '''
+        pack unsigned integer into network order
+        '''
+        formats = {2: '>H', 4: '>L'}
+        if length not in [2, 4] or order != 'big':
+            raise NotImplementedError('intstr() limited to network ints')
+        return struct.pack(formats[length], unpacked)
 try:
     unichr  # pylint: disable=used-before-assignment
 except NameError:
@@ -78,22 +101,27 @@ def serve(port=SERVER_PORT):
         upstream.close()
         listener.sendto(response[2:], sender)
 
-def unpack(message):
+def unpack(message):  # pylint: disable=too-many-locals
     # pylint: disable=line-too-long
     r'''
     break dns query or response into its component parts
 
     >>> unpack(b'\xecy\x01\x00\x00\x01\x00\x00\x00\x00\x00\x00\x05apple\x03com\x00\x00\x1c\x00\x01')
-    [['apple.com', 28, 1]]
+    OrderedDict({'tid': 60537, 'flags': 256, 'qdcount': 1, 'ancount': 0, 'nscount': 0, 'arcount': 0, 'records': [['apple.com', 28, 1]]})
     >>> unpack(b'\x007\xecy\x81\x80\x00\x01\x00\x01\x00\x00\x00\x00\x05apple\x03com\x00\x00\x1c\x00\x01\xc0\x0c\x00\x1c\x00\x01\x00\x00\x03\x07\x00\x10& \x01I\n\xf0\x00\x00\x00\x00\x00\x00\x00\x00\x00\x10'[2:])
-    [['apple.com', 28, 1], ['apple.com', 28, 1, 775, 16, '2620:149:af0::10']]
+    OrderedDict({'tid': 60537, 'flags': 33152, 'qdcount': 1, 'ancount': 1, 'nscount': 0, 'arcount': 0, 'records': [['apple.com', 28, 1], ['apple.com', 28, 1, 775, 16, '2620:149:af0::10']]})
     '''
+    tid = netint(message[0:2])
+    flags = netint(message[2:4])
     qdcount = netint(message[4:6])
     ancount = netint(message[6:8])
     nscount = netint(message[8:10])
     arcount = netint(message[10:12])
-    logging.debug({'qdcount': qdcount, 'ancount': ancount,
-                   'nscount': nscount, 'arcount': arcount})
+    unpacked = OrderedDict([
+        ['tid', tid], ['flags', flags],
+        ['qdcount', qdcount], ['ancount', ancount],
+        ['nscount', nscount], ['arcount', arcount]
+    ])
     records = []
     offset = 12
     for record in range(qdcount + ancount + nscount + arcount):
@@ -117,7 +145,38 @@ def unpack(message):
             records.append([name, qtype, qclass, ttl, rdlength, rdata])
             offset += 6 + rdlength
         logging.debug('unprocessed remainder: %r', message[offset:])
-    return records
+    unpacked['records'] = records
+    return unpacked
+
+def pack(message):  # pylint: disable=too-many-locals
+    r'''
+    opposite of `unpack`: packs message into DNS packet
+
+    >>> pack({'tid': 0xec79, 'flags': RECURSION_DESIRED, 'records': [['apple.com', 28, 1]]})
+    b'\xecy\x01\x00\x00\x01\x00\x00\x00\x00\x00\x00\x05apple\x03com\x00\x00\x1c\x00\x01'
+    '''
+    # not supporting nameserver or associated records for now
+    flags = qdcount = ancount = nscount = arcount = 0
+    packed = b''
+    packaddr = {1: pack_ipv4, 28: pack_ipv6}
+    for packet in message['records']:
+        if len(packet) not in (3, 6):
+            raise ValueError('message of length %s unsupported' % len(message))
+        name, qtype, qclass = packet
+        packed += pack_name(name) + intstr(qtype) + intstr(qclass)
+        if len(packet) == 6:  # answer
+            ttl, rdlength, rdata = packet[3:]
+            packed += intstr(ttl, length=4) + intstr(rdlength)
+            packed += packaddr.get(qtype, lambda o: o)(rdata)
+            ancount += 1
+        else:
+            qdcount += 1
+    flags |= message.get('flags', 0)
+    header = intstr(message['tid']) + intstr(flags)
+    header += b''.join(
+        intstr(count) for count in [qdcount, ancount, nscount, arcount]
+    )
+    return header + packed
 
 def unpack_name(message, offset, parts=None):
     '''
