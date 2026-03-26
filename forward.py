@@ -160,5 +160,26 @@ def unpack_ipv4(address):
     '''
     return '.'.join(map(str, struct.unpack('BBBB', address)))
 
+def pack_ipv6(address):
+    # pylint: disable=line-too-long
+    r'''
+    pack colon-notation IPv6 address into netint
+
+    >>> pack_ipv6('::1')
+    b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01'
+
+    >>> pack_ipv6('fe80::be03:58ff:fe53:a84a')
+    b'\xfe\x80\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xbe\x03X\xff\xfeS\xa8J'
+
+    >>> pack_ipv6('fe80::')
+    b'\xfe\x80\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+    '''
+    parts = address.split(':')
+    while '' in parts:
+        length = len(list(filter(None, parts)))
+        index = parts.index('')
+        parts[index:index + 1] = ['0'] * (16 - length)
+    return struct.pack('>16H', *map(lambda n: int(n, 16), parts))
+
 if __name__ == '__main__':
     serve()
