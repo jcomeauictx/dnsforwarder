@@ -181,5 +181,16 @@ def pack_ipv6(address):
         parts[index:index + 1] = ['0'] * (16 - length)
     return struct.pack('>16H', *map(lambda n: int(n, 16), parts))
 
+def unpack_ipv6(address):
+    # pylint: disable=line-too-long
+    r'''
+    convert raw 128-bit address into colon notation
+
+    >>> unpack_ipv6(b'\xfe\x80\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xbe\x03X\xff\xfeS\xa8J')
+    'fe80::be03:58ff:fe53:a84a'
+    '''
+    hextets = struct.unpack('>16H', address)
+    return hextets
+
 if __name__ == '__main__':
     serve()
