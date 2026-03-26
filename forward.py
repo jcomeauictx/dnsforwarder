@@ -21,7 +21,7 @@ RECURSION_DESIRED = 0x100
 RECURSION_AVAILABLE = 0x80
 RESERVED_MASK = 0x70
 RETURN_CODE_MASK = 0xf
-# pylint: disable=consider-using-f-string
+# pylint: disable=bad-option-value,consider-using-f-string
 try:
     int.from_bytes  # pylint: disable=pointless-statement
     def netint(packed, order='big'):
@@ -195,7 +195,6 @@ def unpack_name(message, offset, parts=None):
         return unpack_name(message, offset + 1 + count, parts)
     if count == 0:
         return (offset + 1, '.'.join(parts))
-    # pylint: disable=consider-using-f-string
     raise ValueError('count of 0x%02x not supported' % count)
 
 def pack_name(dotname):
