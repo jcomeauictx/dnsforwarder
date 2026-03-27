@@ -74,6 +74,7 @@ class DNSRecord():  # pylint: disable=too-few-public-methods
     represent a DNS record
 
     >>> DNSRecord(b'\x007\xecy\x81\x80\x00\x01\x00\x01\x00\x00\x00\x00\x05apple\x03com\x00\x00\x1c\x00\x01\xc0\x0c\x00\x1c\x00\x01\x00\x00\x03\x07\x00\x10& \x01I\n\xf0\x00\x00\x00\x00\x00\x00\x00\x00\x00\x10'[2:], offset=12)
+    ['apple.com', 0x1c, 0x1]
     '''
     def __init__(self, data=None, message=None, offset=None):
         self.message = message  # associated message if given
@@ -81,19 +82,34 @@ class DNSRecord():  # pylint: disable=too-few-public-methods
         self.qname = None
         self.qtype = None
         self.qclass = None
-        self.offset = offset
         if message and not data:
             data = message.raw
         if hasattr(data, 'decode'):  # raw bytes
-            self.raw = data
             if offset is None:
                 logging.debug('DNSRecord assuming offset of 0')
+                offset = 0
+            self.raw = data[offset:]
+            offset = 0  # now that data is truncated, offset is zero
+            offset, self.qname = unpack_name(self.raw, offset)
+            self.qtype = netint(self.raw[offset:offset + 2])
+            self.qclass = netint(self.raw[offset + 2:offset + 4])
+            self.raw = self.raw[:offset + 4]  # also truncate end
         elif data:
             self.qname = data[0]
             self.qtype = data[1]
             self.qclass = data[2]
         else:
             logging.error('DNSRecord useless without data')
+
+    def __str__(self):
+        return ('[' +
+                '%r' % self.qname + ', ' +
+                '0x%x' % self.qtype + ', ' +
+                '0x%x' % self.qclass +
+                ']'
+               )
+
+    __repr__ = __str__
 
 class DNSMessage():  # pylint: disable=too-few-public-methods
     # pylint: disable=line-too-long
