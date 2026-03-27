@@ -78,7 +78,7 @@ class DNSRecord():  # pylint: disable=too-few-public-methods
     '''
     def __init__(self, data=None, message=None, offset=None):
         self.message = message  # associated message if given
-        self.raw = None
+        self._raw = None
         self.qname = None
         self.qtype = None
         self.qclass = None
@@ -88,12 +88,12 @@ class DNSRecord():  # pylint: disable=too-few-public-methods
             if offset is None:
                 logging.debug('DNSRecord assuming offset of 0')
                 offset = 0
-            self.raw = data[offset:]
+            self._raw = data[offset:]
             offset = 0  # now that data is truncated, offset is zero
-            offset, self.qname = unpack_name(self.raw, offset)
-            self.qtype = netint(self.raw[offset:offset + 2])
-            self.qclass = netint(self.raw[offset + 2:offset + 4])
-            self.raw = self.raw[:offset + 4]  # also truncate end
+            offset, self.qname = unpack_name(self._raw, offset)
+            self.qtype = netint(self._raw[offset:offset + 2])
+            self.qclass = netint(self._raw[offset + 2:offset + 4])
+            self._raw = self._raw[:offset + 4]  # also truncate end
         elif data:
             self.qname = data[0]
             self.qtype = data[1]
@@ -110,6 +110,25 @@ class DNSRecord():  # pylint: disable=too-few-public-methods
                )
 
     __repr__ = __str__
+
+    def __getitem__(self, key):
+        mapping = {0: self.qname, 1: self.qtype, 2: self.qclass}
+        return mapping[key]
+
+    def getraw(self):
+        '''
+        create "raw" bytes for this record
+
+        has side effect of setting self._raw
+        '''
+        self._raw = (
+            pack_name(self.qname) +
+            intstr(self.qtype) +
+            intstr(self.qclass)
+        )
+        return self._raw
+
+    raw = property(lambda self: self._raw or self.getraw())
 
 class DNSMessage():  # pylint: disable=too-few-public-methods
     # pylint: disable=line-too-long
