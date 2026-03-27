@@ -69,24 +69,36 @@ SERVER_PORT = '53'
 logging.basicConfig(level=logging.DEBUG if __debug__ else logging.WARN)
 
 class DNSMessage():  # pylint: disable=too-few-public-methods
-    '''
+    # pylint: disable=line-too-long
+    r'''
     represent a DNS message
+
+    >>> DNSMessage(b'\x007\xecy\x81\x80\x00\x01\x00\x01\x00\x00\x00\x00\x05apple\x03com\x00\x00\x1c\x00\x01\xc0\x0c\x00\x1c\x00\x01\x00\x00\x03\x07\x00\x10& \x01I\n\xf0\x00\x00\x00\x00\x00\x00\x00\x00\x00\x10'[2:])
+    [0xec79]
     '''
     def __init__(self, data=None):
         self.tid = 0
         self.flags = 0
         self.records = [[], [], [], []]
         if data:
-            if hasattr(data, 'decode'):
+            if hasattr(data, 'decode'):  # bytes or equivalent
                 self.raw = data
-            else:
+                self.tid = netint(data[0:2])
+                self.flags = netint(data[2:4])
+                self.records[0].extend([None] * netint(data[4:6]))
+                self.records[1].extend([None] * netint(data[6:8]))
+                self.records[2].extend([None] * netint(data[8:10]))
+                self.records[3].extend([None] * netint(data[10:12]))
+            else:  # list
                 self.tid = data[0]
                 self.flags = data[1]
                 self.records = data[2]
                 self.raw = b''
 
     def __str__(self):
-        return '[' + hex(self.tid) + ']'
+        return '[' + '0x%x' % self.tid + ']'
+
+    __repr__ = __str__
 
     qdcount = property(lambda self: len(self.records[0]))
     ancount = property(lambda self: len(self.records[1]))
