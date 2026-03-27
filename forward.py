@@ -83,18 +83,19 @@ class DNSRecord():  # pylint: disable=too-few-public-methods
         self.qname = None
         self.qtype = None
         self.qclass = None
+        self.offset = offset  # offset into message
         if message and not data:
             data = message.raw
         if hasattr(data, 'decode'):  # raw bytes
             if offset is None:
-                logging.debug('DNSRecord assuming offset of 0')
-                offset = 0
-            self._raw = data[offset:]
+                logging.debug('DNSRecord assuming offset of 12')
+                self.offset = offset = 12
             offset = 0  # now that data is truncated, offset is zero
-            offset, self.qname = unpack_name(self._raw, offset)
-            self.qtype = netint(self._raw[offset:offset + 2])
-            self.qclass = netint(self._raw[offset + 2:offset + 4])
-            self._raw = self._raw[:offset + 4]  # also truncate end
+            offset, self.qname = unpack_name(data, offset)
+            self.qtype = netint(data[offset:offset + 2])
+            self.qclass = netint(data[offset + 2:offset + 4])
+            offset += 4
+            self._raw = self._raw[self.offset:offset]
         elif data:
             self.qname = data[0]
             self.qtype = data[1]
@@ -156,7 +157,14 @@ class DNSMessage():  # pylint: disable=too-few-public-methods
                 self.tid = data[0]
                 self.flags = data[1]
                 self.records = data[2]
-                self.raw = b''
+                self.raw = (
+                    intstr(self.tid) +
+                    intstr(self.flags) +
+                    intstr(len(self.records[0])) +
+                    intstr(len(self.records[1])) +
+                    intstr(len(self.records[2])) +
+                    intstr(len(self.records[3]))
+                )
         offset = 12  # point past header to records
         # if any records were initialized as None, they should all be;
         # otherwise, this step can produce wrong results
@@ -166,8 +174,11 @@ class DNSMessage():  # pylint: disable=too-few-public-methods
                     if self.records[i][j] is None:
                         self.records[i][j] = DNSRecord(self.raw, offset=offset)
                         offset += len(self.records[i][j].raw)
+                        logging.debug('raw record: %r, new offset: %d',
+                                      self.records[i][j].raw, offset)
                     else:
                         self.records[i][j] = DNSRecord(self.records[i][j])
+                        self.raw += self.records[i][j].raw
 
     def __str__(self):
         return ('[' +
