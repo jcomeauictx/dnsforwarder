@@ -19,8 +19,8 @@ def hostsfile():
     '''
     # according to hosts manpage, it is allowed to have two entries
     # for each hostname, one for each version of the IP protocol (v4 and v6)
+    hosts = {'ipv4': {}, 'ipv6': {}}
     with open('/etc/hosts', **OPEN_OPTIONS) as infile:
-        hosts = {'ipv4': {}, 'ipv6': {}}
         for line in infile:
             if '#' in line:
                 data, comment = line.split('#', 1)

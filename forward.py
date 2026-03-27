@@ -2,6 +2,10 @@
 '''
 forward.py -- service to bypass telcel DNS blocking by forwarding to opendns
 
+Also imports hosts file and short-circuits any requests for hosts therein.
+Totally unnecessary on standard GNU/Linux but useful with iSH app for iphone,
+because /etc/hosts on iSH Alpine is hidden from iOS and thus browsers.
+
 Opendns listens on port 443 in addition to 53 and 5353, in both udp and tcp
 protocols. Telcel blocks all of the above except for tcp:443, which it must
 pass for web traffic.
@@ -11,7 +15,14 @@ packet not counting the two bytes of the length field itself. I did not find
 this documented anywhere, but observed it in `ngrep -x` output.
 '''
 import sys, os, socket, struct, re, logging  # pylint: disable=multiple-imports
-# flags
+from hostsfile import hostsfile
+
+logging.basicConfig(level=logging.DEBUG if __debug__ else logging.WARN)
+logging.quiet = lambda *args, **kwargs: logging.log(
+    logging.NOTSET, *args, **kwargs
+)
+
+# flag field constants
 RESPONSE = 0x8000
 OPCODE_MASK = 0x7800
 AUTHORITATIVE = 0x400
@@ -20,6 +31,15 @@ RECURSION_DESIRED = 0x100
 RECURSION_AVAILABLE = 0x80
 RESERVED_MASK = 0x70
 RETURN_CODE_MASK = 0xf
+
+OPENDNS = os.getenv('OPENDNS', '208.67.222.222')
+OPENDNS_SOCKETTYPE = socket.SOCK_STREAM  # tcp
+OPENDNS_PORT = '443'
+SERVER = os.getenv('DNS_SERVER', '127.0.0.1')
+SERVER_SOCKETTYPE = socket.SOCK_DGRAM  # udp
+SERVER_PORT = '53'
+
+INTERNET_CLASS = 1  # for qclass
 # pylint: disable=bad-option-value, consider-using-f-string
 # pylint: disable=consider-using-enumerate
 try:
@@ -58,18 +78,6 @@ try:
     unichr  # pylint: disable=used-before-assignment
 except NameError:
     unichr = chr
-
-OPENDNS = os.getenv('OPENDNS', '208.67.222.222')
-OPENDNS_SOCKETTYPE = socket.SOCK_STREAM  # tcp
-OPENDNS_PORT = '443'
-SERVER = os.getenv('DNS_SERVER', '127.0.0.1')
-SERVER_SOCKETTYPE = socket.SOCK_DGRAM  # udp
-SERVER_PORT = '53'
-
-logging.basicConfig(level=logging.DEBUG if __debug__ else logging.WARN)
-logging.quiet = lambda *args, **kwargs: logging.log(
-    logging.NOTSET, *args, **kwargs
-)
 
 class DNSRecord():  # pylint: disable=too-few-public-methods
     # pylint: disable=line-too-long
@@ -202,6 +210,13 @@ def serve(port=SERVER_PORT):
     '''
     listener = socket.socket(socket.AF_INET, SERVER_SOCKETTYPE)
     try:
+        hosts = hostsfile()
+        # map host entries to qtype
+        hosts[1] = hosts['ipv4']  # for A queries
+        hosts[28] = hosts['ipv6']  # for AAAA queries
+    except OSError:
+        hosts = {1: {}, 28: {}}
+    try:
         listener.bind((SERVER, int(port)))
     except PermissionError:
         port *= 2  # try with port 5353
@@ -215,10 +230,18 @@ def serve(port=SERVER_PORT):
     logging.info('dnsforwarder bound to %s:%s', SERVER, port)
     while True:
         query, sender = listener.recvfrom(1024)
+        message = DNSMessage(query)
         logging.debug(
-            'query: %r (%s), sender: %r',
-            query, DNSMessage(query), sender
+            'query: %r (%s), sender: %r', query, message, sender
         )
+        for record in message.records[0]:
+            if record.qname in hosts[record.qtype]:
+                logging.debug('short-circuiting query for %s', record.qname)
+                message.records[1].append(
+                    DNSRecord(
+                        hosts[record.qtype], record.qtype, INTERNET_CLASS
+                    )
+                )
         upstream = socket.socket(socket.AF_INET, OPENDNS_SOCKETTYPE)
         upstream.bind(('0.0.0.0', 0))
         upstream.connect((OPENDNS, int(OPENDNS_PORT)))
