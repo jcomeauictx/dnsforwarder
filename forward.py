@@ -75,20 +75,25 @@ class DNSRecord():  # pylint: disable=too-few-public-methods
 
     >>> DNSRecord(b'\x007\xecy\x81\x80\x00\x01\x00\x01\x00\x00\x00\x00\x05apple\x03com\x00\x00\x1c\x00\x01\xc0\x0c\x00\x1c\x00\x01\x00\x00\x03\x07\x00\x10& \x01I\n\xf0\x00\x00\x00\x00\x00\x00\x00\x00\x00\x10'[2:], offset=12)
     '''
-    def __init__(self, data=None, message=None, offset=None, index=None):
+    def __init__(self, data=None, message=None, offset=None):
         self.message = message  # associated message if given
         self.raw = None
         self.qname = None
         self.qtype = None
         self.qclass = None
         self.offset = offset
-        self.index = index
         if message and not data:
-            self.raw = data = message.raw
-        if offset is not None and index is not None:
-            logging.warning('DNSRecord using offset, index ignored')
+            data = message.raw
         if hasattr(data, 'decode'):  # raw bytes
             self.raw = data
+            if offset is None:
+                logging.debug('DNSRecord assuming offset of 0')
+        elif data:
+            self.qname = data[0]
+            self.qtype = data[1]
+            self.qclass = data[2]
+        else:
+            logging.error('DNSRecord useless without data')
 
 class DNSMessage():  # pylint: disable=too-few-public-methods
     # pylint: disable=line-too-long
