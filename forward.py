@@ -90,12 +90,11 @@ class DNSRecord():  # pylint: disable=too-few-public-methods
             if offset is None:
                 logging.debug('DNSRecord assuming offset of 12')
                 self.offset = offset = 12
-            offset = 0  # now that data is truncated, offset is zero
             offset, self.qname = unpack_name(data, offset)
             self.qtype = netint(data[offset:offset + 2])
             self.qclass = netint(data[offset + 2:offset + 4])
             offset += 4
-            self._raw = self._raw[self.offset:offset]
+            self._raw = data[self.offset:offset]
         elif data:
             self.qname = data[0]
             self.qtype = data[1]
@@ -138,7 +137,7 @@ class DNSMessage():  # pylint: disable=too-few-public-methods
     represent a DNS message
 
     >>> DNSMessage(b'\x007\xecy\x81\x80\x00\x01\x00\x01\x00\x00\x00\x00\x05apple\x03com\x00\x00\x1c\x00\x01\xc0\x0c\x00\x1c\x00\x01\x00\x00\x03\x07\x00\x10& \x01I\n\xf0\x00\x00\x00\x00\x00\x00\x00\x00\x00\x10'[2:])
-    [0xec79, 0x8180, [[None], [None], [], []]]
+    [0xec79, 0x8180, [[['apple.com', 0x1c, 0x1]], [['apple.com', 0x1c, 0x1]], [], []]]
     '''
     def __init__(self, data=None):
         self.tid = 0
