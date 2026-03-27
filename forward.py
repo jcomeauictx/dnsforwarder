@@ -68,6 +68,31 @@ SERVER_PORT = '53'
 
 logging.basicConfig(level=logging.DEBUG if __debug__ else logging.WARN)
 
+class DNSMessage():  # pylint: disable=too-few-public-methods
+    '''
+    represent a DNS message
+    '''
+    def __init__(self, data=None):
+        self.tid = 0
+        self.flags = 0
+        self.records = [[], [], [], []]
+        if data:
+            if hasattr(data, 'decode'):
+                self.raw = data
+            else:
+                self.tid = data[0]
+                self.flags = data[1]
+                self.records = data[2]
+                self.raw = b''
+
+    def __str__(self):
+        return '[' + hex(self.tid) + ']'
+
+    qdcount = property(lambda self: len(self.records[0]))
+    ancount = property(lambda self: len(self.records[1]))
+    nscount = property(lambda self: len(self.records[2]))
+    arcount = property(lambda self: len(self.records[3]))
+
 def serve(port=SERVER_PORT):
     '''
     forwards dns queries by pretending to be a local server
