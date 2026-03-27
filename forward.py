@@ -68,6 +68,28 @@ SERVER_PORT = '53'
 
 logging.basicConfig(level=logging.DEBUG if __debug__ else logging.WARN)
 
+class DNSRecord():  # pylint: disable=too-few-public-methods
+    # pylint: disable=line-too-long
+    r'''
+    represent a DNS record
+
+    >>> DNSRecord(b'\x007\xecy\x81\x80\x00\x01\x00\x01\x00\x00\x00\x00\x05apple\x03com\x00\x00\x1c\x00\x01\xc0\x0c\x00\x1c\x00\x01\x00\x00\x03\x07\x00\x10& \x01I\n\xf0\x00\x00\x00\x00\x00\x00\x00\x00\x00\x10'[2:], offset=12)
+    '''
+    def __init__(self, message=None, data=None, offset=None, index=None):
+        self.message = message  # associated message if given
+        self.raw = None
+        self.qname = None
+        self.qtype = None
+        self.qclass = None
+        self.offset = offset
+        self.index = index
+        if message and not data:
+            self.raw = data = message.raw
+        if offset is not None and index is not None:
+            logging.warning('DNSRecord using offset, index ignored')
+        if hasattr(data, 'decode'):  # raw bytes
+            self.raw = data
+
 class DNSMessage():  # pylint: disable=too-few-public-methods
     # pylint: disable=line-too-long
     r'''
