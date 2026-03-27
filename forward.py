@@ -21,7 +21,8 @@ RECURSION_DESIRED = 0x100
 RECURSION_AVAILABLE = 0x80
 RESERVED_MASK = 0x70
 RETURN_CODE_MASK = 0xf
-# pylint: disable=bad-option-value,consider-using-f-string
+# pylint: disable=bad-option-value, consider-using-f-string
+# pylint: disable=consider-using-enumerate
 try:
     int.from_bytes  # pylint: disable=pointless-statement
     def netint(packed, order='big'):
@@ -156,6 +157,17 @@ class DNSMessage():  # pylint: disable=too-few-public-methods
                 self.flags = data[1]
                 self.records = data[2]
                 self.raw = b''
+        offset = 12  # point past header to records
+        # if any records were initialized as None, they should all be;
+        # otherwise, this step can produce wrong results
+        for i in range(len(self.records)):
+            for j in range(len(self.records[i])):
+                if not hasattr(self.records[i][j], 'qname'):
+                    if self.records[i][j] is None:
+                        self.records[i][j] = DNSRecord(self.raw, offset=offset)
+                        offset += len(self.records[i][j].raw)
+                    else:
+                        self.records[i][j] = DNSRecord(self.records[i][j])
 
     def __str__(self):
         return ('[' +
@@ -288,6 +300,7 @@ def unpack_name(message, offset, parts=None):
 
     return the new offset, and the name as a dotted string
     '''
+    logging.debug('unpacking name from %r', message[offset:offset + 64])
     parts = parts or []
     count = ord(message[offset:offset + 1])
     if count & 0xc0 == 0xc0:
