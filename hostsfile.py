@@ -1,12 +1,16 @@
-#!/usr/bin/python -OO
+#!/usr/bin/python3 -OO
 '''
 read in hosts file as dict
 
 maps names with IP addresses to override DNS queries and add
 custom TLD resolution.
 '''
-import sys, logging  # pylint: disable=multiple-imports
-
+import sys, os, logging  # pylint: disable=multiple-imports
+try:
+    open(os.devnull, encoding='utf-8')  # pylint: disable=consider-using-with
+    OPEN_OPTIONS = {'encoding': 'utf-8'}
+except TypeError:
+    OPEN_OPTIONS = {}
 logging.basicConfig(level=logging.DEBUG if __debug__ else logging.INFO)
 
 def hostsfile():
@@ -15,7 +19,7 @@ def hostsfile():
     '''
     # according to hosts manpage, it is allowed to have two entries
     # for each hostname, one for each version of the IP protocol (v4 and v6)
-    with open('/etc/hosts', encoding='utf-8') as infile:
+    with open('/etc/hosts', **OPEN_OPTIONS) as infile:
         hosts = {'ipv4': {}, 'ipv6': {}}
         for line in infile:
             if '#' in line:
