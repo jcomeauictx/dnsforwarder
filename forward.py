@@ -74,7 +74,7 @@ class DNSMessage():  # pylint: disable=too-few-public-methods
     represent a DNS message
 
     >>> DNSMessage(b'\x007\xecy\x81\x80\x00\x01\x00\x01\x00\x00\x00\x00\x05apple\x03com\x00\x00\x1c\x00\x01\xc0\x0c\x00\x1c\x00\x01\x00\x00\x03\x07\x00\x10& \x01I\n\xf0\x00\x00\x00\x00\x00\x00\x00\x00\x00\x10'[2:])
-    [0xec79]
+    [0xec79, 0x8180, [[None], [None], [], []]]
     '''
     def __init__(self, data=None):
         self.tid = 0
@@ -96,7 +96,12 @@ class DNSMessage():  # pylint: disable=too-few-public-methods
                 self.raw = b''
 
     def __str__(self):
-        return '[' + '0x%x' % self.tid + ']'
+        return ('[' +
+                '0x%x' % self.tid + ', ' +
+                '0x%04x' % self.flags + ', ' +
+                str(self.records) +
+                ']'
+               )
 
     __repr__ = __str__
 
