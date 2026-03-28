@@ -178,7 +178,7 @@ class DNSMessage():  # pylint: disable=too-few-public-methods
     represent a DNS message
 
     >>> DNSMessage(b'\x007\xecy\x81\x80\x00\x01\x00\x01\x00\x00\x00\x00\x05apple\x03com\x00\x00\x1c\x00\x01\xc0\x0c\x00\x1c\x00\x01\x00\x00\x03\x07\x00\x10& \x01I\n\xf0\x00\x00\x00\x00\x00\x00\x00\x00\x00\x10'[2:])
-    [0xec79, 0x8180, [[['apple.com', 0x1c, 0x1]], [['apple.com', 0x1c, 0x1]], [], []]]
+    [0xec79, 0x8180, [[['apple.com', 0x1c, 0x1]], [['apple.com', 0x1c, 0x1775, '2620:149:af0::10']], [], []]]
     '''
     def __init__(self, data=None):
         self.tid = 0
@@ -212,7 +212,9 @@ class DNSMessage():  # pylint: disable=too-few-public-methods
             for j in range(len(self.records[i])):
                 if not hasattr(self.records[i][j], 'qname'):
                     if self.records[i][j] is None:
-                        self.records[i][j] = DNSRecord(self._raw, offset=offset)
+                        self.records[i][j] = DNSRecord(
+                            self._raw, offset=offset, query=(i == 0)
+                        )
                         offset += len(self.records[i][j].raw)
                         logging.debug('raw record: %r, new offset: %d',
                                       self.records[i][j].raw, offset)
