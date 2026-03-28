@@ -295,7 +295,9 @@ def serve(port=SERVER_PORT):
             # TCP queries have a short length prepended
             length = struct.pack('>H', len(query))
             upstream.send(length + query)
-            response = DNSMessage(upstream.recv(1024)[2:]) + response
+            received = upstream.recv(1024)[2:]
+            logging.debug('received: %r', received)
+            response = DNSMessage(received) + response
             upstream.close()
         logging.debug('response: %s, raw: %r', response, response.raw)
         listener.sendto(response.raw, sender)
