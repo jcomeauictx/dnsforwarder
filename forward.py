@@ -226,6 +226,7 @@ class DNSMessage():  # pylint: disable=too-few-public-methods
                     else:
                         self.records[i][j] = DNSRecord(self.records[i][j])
                         self._raw += self.records[i][j].raw
+                        logging.debug('constructed raw record: %r', self._raw)
 
     def __str__(self):
         return ('[' +
@@ -266,6 +267,10 @@ class DNSMessage():  # pylint: disable=too-few-public-methods
         for i in range(len(self.records)):
             for j in range(len(self.records[i])):
                 _raw += self.records[i][j].raw
+                logging.debug(
+                        'DNSMessage.getraw after adding records[%d][%d]: %r',
+                    i, j, _raw
+                )
         return _raw
 
     raw = property(lambda self: self.getraw())
