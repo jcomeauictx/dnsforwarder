@@ -95,7 +95,7 @@ class DNSRecord():  # pylint: disable=too-few-public-methods
         self.qclass = None
         self.offset = offset  # offset into message
         if message and not data:
-            data = message.raw
+            data = message._raw
         if hasattr(data, 'decode'):  # raw bytes
             if offset is None:
                 logging.debug('DNSRecord assuming offset of 12')
@@ -155,7 +155,7 @@ class DNSMessage():  # pylint: disable=too-few-public-methods
         self.records = [[], [], [], []]
         if data:
             if hasattr(data, 'decode'):  # bytes or equivalent
-                self.raw = data
+                self._raw = data
                 self.tid = netint(data[0:2])
                 self.flags = netint(data[2:4])
                 self.records[0].extend([None] * netint(data[4:6]))
@@ -166,7 +166,7 @@ class DNSMessage():  # pylint: disable=too-few-public-methods
                 self.tid = data[0]
                 self.flags = data[1]
                 self.records = data[2]
-                self.raw = (
+                self._raw = (
                     intstr(self.tid) +
                     intstr(self.flags) +
                     intstr(len(self.records[0])) +
@@ -181,13 +181,13 @@ class DNSMessage():  # pylint: disable=too-few-public-methods
             for j in range(len(self.records[i])):
                 if not hasattr(self.records[i][j], 'qname'):
                     if self.records[i][j] is None:
-                        self.records[i][j] = DNSRecord(self.raw, offset=offset)
+                        self.records[i][j] = DNSRecord(self._raw, offset=offset)
                         offset += len(self.records[i][j].raw)
                         logging.debug('raw record: %r, new offset: %d',
                                       self.records[i][j].raw, offset)
                     else:
                         self.records[i][j] = DNSRecord(self.records[i][j])
-                        self.raw += self.records[i][j].raw
+                        self._raw += self.records[i][j].raw
 
     def __str__(self):
         return ('[' +
@@ -203,6 +203,28 @@ class DNSMessage():  # pylint: disable=too-few-public-methods
     ancount = property(lambda self: len(self.records[1]))
     nscount = property(lambda self: len(self.records[2]))
     arcount = property(lambda self: len(self.records[3]))
+
+    # unlike record.raw, we should regenerate at each access,
+    # because we don't know if records have been added/removed
+    def getraw(self):
+        '''
+        create a "raw" bytes representation of this message
+        '''
+        if self.records[1] + self.records[2] + self.records[3]:
+            if not self.flags & RESPONSE:
+                self.flags |= RESPONSE | AUTHORITATIVE
+        _raw = (intstr(self.tid) +
+                intstr(self.flags) +
+                intstr(self.qdcount) +
+                intstr(self.ancount) +
+                intstr(self.nscount) +
+                intstr(self.arcount)
+        )
+        for i in range(len(self.records)):
+            for j in range(len(self.records[i])):
+                self._raw += self.records[i][j].raw
+
+    raw = property(lambda self: self.getraw())
 
 def serve(port=SERVER_PORT):
     '''
@@ -231,26 +253,40 @@ def serve(port=SERVER_PORT):
     while True:
         query, sender = listener.recvfrom(1024)
         message = DNSMessage(query)
+        # initialize a response based on the same query
+        response = DNSMessage(query)
         logging.debug(
             'query: %r (%s), sender: %r', query, message, sender
         )
-        for record in message.records[0]:
+        for i in range(len(message.records[0])):
+            record = message.records[0][i]
             if record.qname in hosts[record.qtype]:
                 logging.debug('short-circuiting query for %s', record.qname)
-                message.records[1].append(
+                response.records[1].append(
                     DNSRecord(
                         hosts[record.qtype], record.qtype, INTERNET_CLASS
                     )
                 )
-        upstream = socket.socket(socket.AF_INET, OPENDNS_SOCKETTYPE)
-        upstream.bind(('0.0.0.0', 0))
-        upstream.connect((OPENDNS, int(OPENDNS_PORT)))
-        length = struct.pack('>h', len(query))
-        upstream.send(length + query)
-        response = upstream.recv(1024)
-        logging.debug('response: %r (%s)', response, DNSMessage(response))
-        upstream.close()
-        listener.sendto(response[2:], sender)
+                # now remove this record from query
+                message.records[0].pop(i)
+        if response.ancount:
+            # we short-circuited at least one record
+            if message.qdcount:
+                # we still have something to send upstream
+                query = message.raw
+            else:
+                query = None
+        if query:
+            upstream = socket.socket(socket.AF_INET, OPENDNS_SOCKETTYPE)
+            upstream.bind(('0.0.0.0', 0))
+            upstream.connect((OPENDNS, int(OPENDNS_PORT)))
+            # TCP queries have a short length prepended
+            length = struct.pack('>H', len(query))
+            upstream.send(length + query)
+            response += DNSMessage(upstream.recv(1024)[2:])
+            upstream.close()
+        logging.debug('response: %s', response)
+        listener.sendto(response.raw, sender)
 
 def unpack_name(message, offset, parts=None):
     '''
