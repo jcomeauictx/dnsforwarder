@@ -261,7 +261,7 @@ class DNSMessage():  # pylint: disable=too-few-public-methods
         '''
         if self.records[1] + self.records[2] + self.records[3]:
             if not self.flags & RESPONSE:
-                self.flags |= RESPONSE | AUTHORITATIVE
+                self.flags |= RESPONSE
         _raw = (intstr(self.tid) +
                 intstr(self.flags) +
                 intstr(self.qdcount) +
