@@ -36,17 +36,17 @@ RECURSION_AVAILABLE = 0x80
 RESERVED_MASK = 0x70
 RETURN_CODE_MASK = 0xf
 
-OPENDNS = os.getenv(u'OPENDNS', u'208.67.222.222')
+OPENDNS = os.getenv('OPENDNS', '208.67.222.222')
 OPENDNS_SOCKETTYPE = socket.SOCK_STREAM  # tcp
-OPENDNS_PORT = u'443'
-SERVER = os.getenv(u'DNS_SERVER', u'127.0.0.1')
+OPENDNS_PORT = '443'
+SERVER = os.getenv('DNS_SERVER', '127.0.0.1')
 SERVER_SOCKETTYPE = socket.SOCK_DGRAM  # udp
-SERVER_PORT = u'53'
+SERVER_PORT = '53'
 
 INTERNET_CLASS = 1  # for qclass
 try:
     int.from_bytes  # pylint: disable=pointless-statement
-    def netint(packed, order=u'big'):
+    def netint(packed, order='big'):
         '''
         unpack unsigned network short or long with python3
 
@@ -54,27 +54,27 @@ try:
         and it was named `byteorder`
         '''
         return int.from_bytes(packed, order)
-    def intstr(unpacked, order=u'big', length=2):
+    def intstr(unpacked, order='big', length=2):
         '''
         pack unsigned integer into network order
         '''
         return unpacked.to_bytes(length, order)
 except AttributeError:
-    def netint(packed, order=u'big'):
+    def netint(packed, order='big'):
         '''
         unpack unsigned network short or long with python2
         '''
-        formats = {2: u'>H', 4: u'>L'}
-        if len(packed) not in  [2, 4] or order != u'big':
-            raise NotImplementedError(u'netint() limited to network ints')
+        formats = {2: '>H', 4: '>L'}
+        if len(packed) not in  [2, 4] or order != 'big':
+            raise NotImplementedError('netint() limited to network ints')
         return struct.unpack(formats[len(packed)], packed)[0]
-    def intstr(unpacked, order=u'big', length=2):
+    def intstr(unpacked, order='big', length=2):
         '''
         pack unsigned integer into network order
         '''
-        formats = {2: u'>H', 4: u'>L'}
-        if length not in [2, 4] or order != u'big':
-            raise NotImplementedError(u'intstr() limited to network ints')
+        formats = {2: '>H', 4: '>L'}
+        if length not in [2, 4] or order != 'big':
+            raise NotImplementedError('intstr() limited to network ints')
         return struct.pack(formats[length], unpacked)
 try:
     # pylint: disable=used-before-assignment, invalid-name, pointless-statement
@@ -92,7 +92,7 @@ class DNSRecord():  # pylint: disable=too-many-instance-attributes
     >>> DNSRecord(b'\x007\xecy\x81\x80\x00\x01\x00\x01\x00\x00\x00\x00\x05apple\x03com\x00\x00\x1c\x00\x01\xc0\x0c\x00\x1c\x00\x01\x00\x00\x03\x07\x00\x10& \x01I\n\xf0\x00\x00\x00\x00\x00\x00\x00\x00\x00\x10'[2:], offset=12, query=True)
     ['apple.com', 0x1c, 0x1]
 
-    >>> DNSRecord([u'localhost', 1, INTERNET_CLASS, 300, u'127.0.0.1'])
+    >>> DNSRecord(['localhost', 1, INTERNET_CLASS, 300, '127.0.0.1'])
     ['localhost', 0x1, 0x1, 300, '127.0.0.1']
     '''
     def __init__(self, data=None, message=None, offset=None, query=False):
@@ -138,15 +138,15 @@ class DNSRecord():  # pylint: disable=too-many-instance-attributes
 
     def __str__(self):
         string = (
-            u'[' +
-              u'%r' % self.qname + u', ' +
-              u'0x%x' % self.qtype + u', ' +
-              u'0x%x' % self.qclass
+            '[' +
+              '%r' % self.qname + ', ' +
+              '0x%x' % self.qtype + ', ' +
+              '0x%x' % self.qclass
         )
         if self.ttl is not None:
-            string += u', ' + str(self.ttl) + u', '
-            string += u'%r' % self.rdata
-        string += u']'
+            string += ', ' + str(self.ttl) + ', '
+            string += '%r' % self.rdata
+        string += ']'
         return string
 
     __repr__ = __str__
@@ -173,7 +173,7 @@ class DNSRecord():  # pylint: disable=too-many-instance-attributes
             if isinstance(self.rdata, bytes):
                 rdata = self.rdata
             else:
-                if u':' in self.rdata:
+                if ':' in self.rdata:
                     rdata = pack_ipv6(self.rdata)
                 else:
                     rdata = pack_ipv4(self.rdata)
@@ -220,7 +220,7 @@ class DNSMessage():  # pylint: disable=too-few-public-methods
         # otherwise, this step can produce wrong results
         for i in range(len(self.records)):
             for j in range(len(self.records[i])):
-                if not hasattr(self.records[i][j], u'qname'):
+                if not hasattr(self.records[i][j], 'qname'):
                     if self.records[i][j] is None:
                         self.records[i][j] = DNSRecord(
                             self._raw, offset=offset, query=(i == 0)
@@ -234,11 +234,11 @@ class DNSMessage():  # pylint: disable=too-few-public-methods
                         logging.quiet('constructed raw record: %r', self._raw)
 
     def __str__(self):
-        return (u'[' +
-                u'0x%x' % self.tid + u', ' +
-                u'0x%04x' % self.flags + u', ' +
+        return ('[' +
+                '0x%x' % self.tid + ', ' +
+                '0x%04x' % self.flags + ', ' +
                 str(self.records) +
-                u']'
+                ']'
                )
 
     __repr__ = __str__
@@ -246,7 +246,7 @@ class DNSMessage():  # pylint: disable=too-few-public-methods
     def __add__(self, other):
         if other is None:
             return self
-        raise NotImplementedError(u'DNSMessage.add not yet implemented')
+        raise NotImplementedError('DNSMessage.add not yet implemented')
 
     qdcount = property(lambda self: len(self.records[0]))
     ancount = property(lambda self: len(self.records[1]))
@@ -291,8 +291,8 @@ def serve(  # pylint: disable=too-many-branches, too-many-statements
     try:
         hosts = hostsfile()
         # map host entries to qtype
-        hosts[1] = hosts[u'ipv4']  # for A queries
-        hosts[28] = hosts[u'ipv6']  # for AAAA queries
+        hosts[1] = hosts['ipv4']  # for A queries
+        hosts[28] = hosts['ipv6']  # for AAAA queries
     except OSError:
         hosts = {1: {}, 28: {}}
     try:
@@ -345,10 +345,10 @@ def serve(  # pylint: disable=too-many-branches, too-many-statements
             response = None
         if query:
             upstream = socket.socket(socket.AF_INET, OPENDNS_SOCKETTYPE)
-            upstream.bind((u'0.0.0.0', 0))
+            upstream.bind(('0.0.0.0', 0))
             upstream.connect((OPENDNS, int(OPENDNS_PORT)))
             # TCP queries have a short length prepended
-            length = struct.pack(u'>H', len(query))
+            length = struct.pack('>H', len(query))
             upstream.send(length + query)
             received = upstream.recv(1024)[2:]
             logging.debug('received: %r', received)
@@ -380,7 +380,7 @@ def unpack_name(message, offset, parts=None):
         parts.append(message[offset + 1:offset + 1 + count].decode())
         return unpack_name(message, offset + 1 + count, parts)
     if count == 0:
-        return (offset + 1, u'.'.join(parts))
+        return (offset + 1, '.'.join(parts))
     raise ValueError('count of 0x%02x not supported' % count)
 
 def pack_name(dotname):
@@ -412,7 +412,7 @@ def unpack_ipv4(address):
     >>> unpack_ipv4(b'\x7f\x00\x00\x01')
     '127.0.0.1'
     '''
-    return u'.'.join(map(unicode, struct.unpack('BBBB', address)))
+    return '.'.join(map(unicode, struct.unpack('BBBB', address)))
 
 def pack_ipv6(address):
     # pylint: disable=line-too-long
@@ -446,16 +446,16 @@ def unpack_ipv6(address):
     ['::1', 'fe80::']
     '''
     unpacked = struct.unpack('>8H', address)
-    unistr = u''.join(map(unichr, unpacked))
-    runs = re.findall(u'\x00+', unistr)
+    unistr = ''.join(map(unichr, unpacked))
+    runs = re.findall('\x00+', unistr)
     index = None  # index to longest run of zeroes
-    stringified = [u'%x' % n for n in unpacked]
+    stringified = ['%x' % n for n in unpacked]
     if runs:
         longest = max(runs, key=len)
         index = unistr.index(longest)  # returns leftmost if a tie (good)
         # this will produce 3 colons if somewhere in the middle
-        stringified[index:index + len(longest)] = [u'', u'']
-    return u':'.join(stringified).replace(u':::', u'::')
+        stringified[index:index + len(longest)] = ['', '']
+    return ':'.join(stringified).replace(':::', '::')
 
 if __name__ == '__main__':
     serve()
