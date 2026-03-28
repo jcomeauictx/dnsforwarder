@@ -199,6 +199,11 @@ class DNSMessage():  # pylint: disable=too-few-public-methods
 
     __repr__ = __str__
 
+    def __add__(self, other):
+        if other is None:
+            return self
+        raise NotImplementedError('DNSMessage.add not yet implemented')
+
     qdcount = property(lambda self: len(self.records[0]))
     ancount = property(lambda self: len(self.records[1]))
     nscount = property(lambda self: len(self.records[2]))
@@ -222,7 +227,8 @@ class DNSMessage():  # pylint: disable=too-few-public-methods
         )
         for i in range(len(self.records)):
             for j in range(len(self.records[i])):
-                self._raw += self.records[i][j].raw
+                _raw += self.records[i][j].raw
+        return _raw
 
     raw = property(lambda self: self.getraw())
 
@@ -270,12 +276,16 @@ def serve(port=SERVER_PORT):
                 # now remove this record from query
                 message.records[0].pop(i)
         if response.ancount:
-            # we short-circuited at least one record
+            logging.debug('we short-circuited at least one query')
             if message.qdcount:
-                # we still have something to send upstream
+                logging.debug('we still have queries to send upstream')
                 query = message.raw
             else:
+                logging.debug('we have no more queries to send upstream')
                 query = None
+        else:
+            logging.debug('message to upstream was not modified')
+            response = None
         if query:
             upstream = socket.socket(socket.AF_INET, OPENDNS_SOCKETTYPE)
             upstream.bind(('0.0.0.0', 0))
@@ -283,9 +293,9 @@ def serve(port=SERVER_PORT):
             # TCP queries have a short length prepended
             length = struct.pack('>H', len(query))
             upstream.send(length + query)
-            response += DNSMessage(upstream.recv(1024)[2:])
+            response = DNSMessage(upstream.recv(1024)[2:]) + response
             upstream.close()
-        logging.debug('response: %s', response)
+        logging.debug('response: %s, raw: %r', response, response.raw)
         listener.sendto(response.raw, sender)
 
 def unpack_name(message, offset, parts=None):
