@@ -102,7 +102,7 @@ class DNSRecord():  # pylint: disable=too-many-instance-attributes
         if message and not data:
             data = message._raw
         if isinstance(data, bytes):
-            logging.debug('DNSRecord data is supplied raw')
+            logging.quiet('DNSRecord data is supplied raw')
             if offset is None:
                 logging.debug('DNSRecord assuming offset of 12')
                 self.offset = offset = 12
@@ -121,7 +121,7 @@ class DNSRecord():  # pylint: disable=too-many-instance-attributes
                     self.rdata = unpack_ipv6(self.rdata)
             self._raw = data[self.offset:offset]
         elif data:
-            logging.debug('DNSRecord data is supplied cooked')
+            logging.quiet('DNSRecord data is supplied cooked')
             self.qname = data[0]
             self.qtype = data[1]
             self.qclass = data[2]
@@ -156,7 +156,7 @@ class DNSRecord():  # pylint: disable=too-many-instance-attributes
 
         has side effect of setting self._raw
         '''
-        logging.debug('making raw representation of %s', self)
+        logging.quiet('making raw representation of %s', self)
         self._raw = (
             pack_name(self.qname) +
             intstr(self.qtype) +
@@ -221,12 +221,12 @@ class DNSMessage():  # pylint: disable=too-few-public-methods
                             self._raw, offset=offset, query=(i == 0)
                         )
                         offset += len(self.records[i][j].raw)
-                        logging.debug('raw record: %r, new offset: %d',
+                        logging.quiet('raw record: %r, new offset: %d',
                                       self.records[i][j].raw, offset)
                     else:
                         self.records[i][j] = DNSRecord(self.records[i][j])
                         self._raw += self.records[i][j].raw
-                        logging.debug('constructed raw record: %r', self._raw)
+                        logging.quiet('constructed raw record: %r', self._raw)
 
     def __str__(self):
         return ('[' +
@@ -266,10 +266,10 @@ class DNSMessage():  # pylint: disable=too-few-public-methods
         )
         for i in range(len(self.records)):
             for j in range(len(self.records[i])):
-                logging.debug('DNSMessage.getraw adding record %s',
+                logging.quiet('DNSMessage.getraw adding record %s',
                               self.records[i][j])
                 _raw += self.records[i][j].raw
-                logging.debug(
+                logging.quiet(
                         'DNSMessage.getraw after adding records[%d][%d]: %r',
                     i, j, _raw
                 )
@@ -348,6 +348,12 @@ def serve(port=SERVER_PORT):
             logging.debug('received: %r', received)
             response = DNSMessage(received) + response
             upstream.close()
+        # delete any OPT records from response
+        for i in range(len(response.records[3])):
+            record = response.records[3][i]
+            if record.qtype == 41:
+                logging.debug('dropping OPT record %s from response', record)
+                response.records[3].pop(i)
         logging.debug('response: %s, raw: %r', response, response.raw)
         listener.sendto(response.raw, sender)
 
