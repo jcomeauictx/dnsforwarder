@@ -132,6 +132,7 @@ class DNSRecord():  # pylint: disable=too-few-public-methods
 
         has side effect of setting self._raw
         '''
+        logging.debug('making raw representation of %s', self)
         self._raw = (
             pack_name(self.qname) +
             intstr(self.qtype) +
@@ -270,7 +271,7 @@ def serve(port=SERVER_PORT):
                 logging.debug('short-circuiting query for %s', record.qname)
                 response.records[1].append(
                     DNSRecord(
-                        hosts[record.qtype], record.qtype, INTERNET_CLASS
+                        [hosts[record.qtype], record.qtype, INTERNET_CLASS]
                     )
                 )
                 # now remove this record from query
