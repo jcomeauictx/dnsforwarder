@@ -172,7 +172,7 @@ class DNSRecord():  # pylint: disable=too-many-instance-attributes
                     rdata = pack_ipv6(self.rdata)
                 else:
                     rdata = pack_ipv4(self.rdata)
-            self._raw = intstr(len(rdata)) + rdata
+            self._raw += intstr(len(rdata)) + rdata
         return self._raw
 
     raw = property(lambda self: self._raw or self.getraw())
@@ -266,6 +266,8 @@ class DNSMessage():  # pylint: disable=too-few-public-methods
         )
         for i in range(len(self.records)):
             for j in range(len(self.records[i])):
+                logging.debug('DNSMessage.getraw adding record %s',
+                              self.records[i][j])
                 _raw += self.records[i][j].raw
                 logging.debug(
                         'DNSMessage.getraw after adding records[%d][%d]: %r',
