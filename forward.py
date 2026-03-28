@@ -86,6 +86,9 @@ class DNSRecord():  # pylint: disable=too-many-instance-attributes
 
     >>> DNSRecord(b'\x007\xecy\x81\x80\x00\x01\x00\x01\x00\x00\x00\x00\x05apple\x03com\x00\x00\x1c\x00\x01\xc0\x0c\x00\x1c\x00\x01\x00\x00\x03\x07\x00\x10& \x01I\n\xf0\x00\x00\x00\x00\x00\x00\x00\x00\x00\x10'[2:], offset=12, query=True)
     ['apple.com', 0x1c, 0x1]
+
+    >>> DNSRecord(['localhost', 1, INTERNET_CLASS, 300, '127.0.0.1'])
+    ['localhost', 0x1, 0x1, 300, '127.0.0.1']
     '''
     def __init__(self, data=None, message=None, offset=None, query=False):
         self.message = message  # associated message if given
@@ -99,6 +102,7 @@ class DNSRecord():  # pylint: disable=too-many-instance-attributes
         if message and not data:
             data = message._raw
         if isinstance(data, bytes):
+            logging.debug('DNSRecord data is supplied raw')
             if offset is None:
                 logging.debug('DNSRecord assuming offset of 12')
                 self.offset = offset = 12
@@ -117,6 +121,7 @@ class DNSRecord():  # pylint: disable=too-many-instance-attributes
                     self.rdata = unpack_ipv6(self.rdata)
             self._raw = data[self.offset:offset]
         elif data:
+            logging.debug('DNSRecord data is supplied cooked')
             self.qname = data[0]
             self.qtype = data[1]
             self.qclass = data[2]
@@ -134,7 +139,7 @@ class DNSRecord():  # pylint: disable=too-many-instance-attributes
               '0x%x' % self.qclass
         )
         if self.ttl is not None:
-            string += str(self.ttl) + ', '
+            string += ', ' + str(self.ttl) + ', '
             string += '%r' % self.rdata
         string += ']'
         return string
@@ -178,7 +183,7 @@ class DNSMessage():  # pylint: disable=too-few-public-methods
     represent a DNS message
 
     >>> DNSMessage(b'\x007\xecy\x81\x80\x00\x01\x00\x01\x00\x00\x00\x00\x05apple\x03com\x00\x00\x1c\x00\x01\xc0\x0c\x00\x1c\x00\x01\x00\x00\x03\x07\x00\x10& \x01I\n\xf0\x00\x00\x00\x00\x00\x00\x00\x00\x00\x10'[2:])
-    [0xec79, 0x8180, [[['apple.com', 0x1c, 0x1]], [['apple.com', 0x1c, 0x1775, '2620:149:af0::10']], [], []]]
+    [0xec79, 0x8180, [[['apple.com', 0x1c, 0x1]], [['apple.com', 0x1c, 0x1, 775, '2620:149:af0::10']], [], []]]
     '''
     def __init__(self, data=None):
         self.tid = 0
