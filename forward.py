@@ -279,7 +279,7 @@ def serve(port=SERVER_PORT):
         hosts = {1: {}, 28: {}}
     try:
         listener.bind((SERVER, int(port)))
-    except PermissionError:
+    except (OSError, socket.error):
         port *= 2  # try with port 5353
         try:
             listener.bind((SERVER, int(port)))
