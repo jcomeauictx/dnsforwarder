@@ -163,11 +163,11 @@ class DNSRecord():  # pylint: disable=too-many-instance-attributes
             if isinstance(self.rdata, bytes):
                 rdata = self.rdata
             else:
-                if ':' in rdata:
-                    rdata = pack_ipv6(rdata)
+                if ':' in self.rdata:
+                    rdata = pack_ipv6(self.rdata)
                 else:
-                    rdata = pack_ipv4(rdata)
-            self.raw = intstr(len(rdata)) + rdata
+                    rdata = pack_ipv4(self.rdata)
+            self._raw = intstr(len(rdata)) + rdata
         return self._raw
 
     raw = property(lambda self: self._raw or self.getraw())
@@ -303,8 +303,13 @@ def serve(port=SERVER_PORT):
                 logging.debug('short-circuiting query for %s', record.qname)
                 response.records[1].append(
                     DNSRecord(
-                        [hosts[record.qtype][record.qname],
-                         record.qtype, INTERNET_CLASS]
+                        [
+                            record.qname,
+                            record.qtype,
+                            INTERNET_CLASS,
+                            600,  # ttl
+                            hosts[record.qtype][record.qname]
+                        ]
                     )
                 )
                 # now remove this record from query
