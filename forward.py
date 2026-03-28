@@ -14,6 +14,10 @@ DNS queries over TCP have two additional bytes prepended, the length of the
 packet not counting the two bytes of the length field itself. I did not find
 this documented anywhere, but observed it in `ngrep -x` output.
 '''
+# pylint: disable=bad-option-value, consider-using-f-string
+# pylint: disable=consider-using-enumerate
+# pylint: disable=bad-option-value, redundant-u-string-prefix
+from __future__ import unicode_literals, with_statement
 import sys, os, socket, struct, re, logging  # pylint: disable=multiple-imports
 from hostsfile import hostsfile
 
@@ -40,8 +44,6 @@ SERVER_SOCKETTYPE = socket.SOCK_DGRAM  # udp
 SERVER_PORT = u'53'
 
 INTERNET_CLASS = 1  # for qclass
-# pylint: disable=bad-option-value, consider-using-f-string
-# pylint: disable=consider-using-enumerate
 try:
     int.from_bytes  # pylint: disable=pointless-statement
     def netint(packed, order=u'big'):
@@ -75,9 +77,12 @@ except AttributeError:
             raise NotImplementedError(u'intstr() limited to network ints')
         return struct.pack(formats[length], unpacked)
 try:
-    unichr  # pylint: disable=used-before-assignment
+    # pylint: disable=used-before-assignment, invalid-name, pointless-statement
+    unichr
+    unicode
 except NameError:
     unichr = chr
+    unicode = str
 
 class DNSRecord():  # pylint: disable=too-many-instance-attributes
     # pylint: disable=line-too-long
@@ -277,7 +282,8 @@ class DNSMessage():  # pylint: disable=too-few-public-methods
 
     raw = property(lambda self: self.getraw())
 
-def serve(port=SERVER_PORT):
+def serve(  # pylint: disable=too-many-branches, too-many-statements
+        port=SERVER_PORT):
     '''
     forwards dns queries by pretending to be a local server
     '''
@@ -406,7 +412,7 @@ def unpack_ipv4(address):
     >>> unpack_ipv4(b'\x7f\x00\x00\x01')
     '127.0.0.1'
     '''
-    return u'.'.join(map(str.decode, struct.unpack('BBBB', address)))
+    return u'.'.join(map(unicode, struct.unpack('BBBB', address)))
 
 def pack_ipv6(address):
     # pylint: disable=line-too-long
