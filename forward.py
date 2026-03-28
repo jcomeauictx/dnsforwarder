@@ -120,10 +120,12 @@ class DNSRecord():  # pylint: disable=too-many-instance-attributes
                 rdlength = netint(data[offset + 4:offset + 6])
                 self.rdata = data[offset + 6:offset + 6 + rdlength]
                 offset += 6 + rdlength
-                if (self.qtype, self.qclass, len(self.rdata)) == (1, 1, 4):
+                if (self.qtype, rdlength) == (1, 4):
                     self.rdata = unpack_ipv4(self.rdata)
-                elif (self.qtype, self.qclass, len(self.rdata)) == (28, 1, 16):
+                elif (self.qtype, rdlength) == (28, 16):
                     self.rdata = unpack_ipv6(self.rdata)
+                else:
+                    logging.debug('leaving rdata %r as bytes', self.rdata)
             self._raw = data[self.offset:offset]
         elif data:
             logging.quiet('DNSRecord data is supplied cooked')
