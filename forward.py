@@ -79,24 +79,26 @@ try:
 except NameError:
     unichr = chr
 
-class DNSRecord():  # pylint: disable=too-few-public-methods
+class DNSRecord():  # pylint: disable=too-many-instance-attributes
     # pylint: disable=line-too-long
     r'''
     represent a DNS record
 
-    >>> DNSRecord(b'\x007\xecy\x81\x80\x00\x01\x00\x01\x00\x00\x00\x00\x05apple\x03com\x00\x00\x1c\x00\x01\xc0\x0c\x00\x1c\x00\x01\x00\x00\x03\x07\x00\x10& \x01I\n\xf0\x00\x00\x00\x00\x00\x00\x00\x00\x00\x10'[2:], offset=12)
+    >>> DNSRecord(b'\x007\xecy\x81\x80\x00\x01\x00\x01\x00\x00\x00\x00\x05apple\x03com\x00\x00\x1c\x00\x01\xc0\x0c\x00\x1c\x00\x01\x00\x00\x03\x07\x00\x10& \x01I\n\xf0\x00\x00\x00\x00\x00\x00\x00\x00\x00\x10'[2:], offset=12, query=True)
     ['apple.com', 0x1c, 0x1]
     '''
-    def __init__(self, data=None, message=None, offset=None):
+    def __init__(self, data=None, message=None, offset=None, query=False):
         self.message = message  # associated message if given
         self._raw = None
         self.qname = None
         self.qtype = None
         self.qclass = None
+        self.ttl = None
+        self.rdata = None
         self.offset = offset  # offset into message
         if message and not data:
             data = message._raw
-        if hasattr(data, 'decode'):  # raw bytes
+        if isinstance(data, bytes):
             if offset is None:
                 logging.debug('DNSRecord assuming offset of 12')
                 self.offset = offset = 12
@@ -104,21 +106,38 @@ class DNSRecord():  # pylint: disable=too-few-public-methods
             self.qtype = netint(data[offset:offset + 2])
             self.qclass = netint(data[offset + 2:offset + 4])
             offset += 4
+            if not query:
+                self.ttl = netint(data[offset:offset + 4])
+                rdlength = netint(data[offset + 4:offset + 6])
+                self.rdata = data[offset + 6:offset + 6 + rdlength]
+                offset += 6 + rdlength
+                if (self.qtype, self.qclass, len(self.rdata)) == (1, 1, 4):
+                    self.rdata = unpack_ipv4(self.rdata)
+                elif (self.qtype, self.qclass, len(self.rdata)) == (28, 1, 16):
+                    self.rdata = unpack_ipv6(self.rdata)
             self._raw = data[self.offset:offset]
         elif data:
             self.qname = data[0]
             self.qtype = data[1]
             self.qclass = data[2]
+            if len(data) > 3:  # don't require `query` parameter if cooked
+                self.ttl = data[3]
+                self.rdata = data[4]
         else:
             logging.error('DNSRecord useless without data')
 
     def __str__(self):
-        return ('[' +
-                '%r' % self.qname + ', ' +
-                '0x%x' % self.qtype + ', ' +
-                '0x%x' % self.qclass +
-                ']'
-               )
+        string = (
+            '[' +
+              '%r' % self.qname + ', ' +
+              '0x%x' % self.qtype + ', ' +
+              '0x%x' % self.qclass
+        )
+        if self.ttl is not None:
+            string += str(self.ttl) + ', '
+            string += '%r' % self.rdata
+        string += ']'
+        return string
 
     __repr__ = __str__
 
@@ -138,6 +157,17 @@ class DNSRecord():  # pylint: disable=too-few-public-methods
             intstr(self.qtype) +
             intstr(self.qclass)
         )
+        if self.ttl is not None:
+            self._raw += intstr(self.ttl, length=4)
+            # assuming rdata also is not None
+            if isinstance(self.rdata, bytes):
+                rdata = self.rdata
+            else:
+                if ':' in rdata:
+                    rdata = pack_ipv6(rdata)
+                else:
+                    rdata = pack_ipv4(rdata)
+            self.raw = intstr(len(rdata)) + rdata
         return self._raw
 
     raw = property(lambda self: self._raw or self.getraw())
@@ -155,7 +185,7 @@ class DNSMessage():  # pylint: disable=too-few-public-methods
         self.flags = 0
         self.records = [[], [], [], []]
         if data:
-            if hasattr(data, 'decode'):  # bytes or equivalent
+            if isinstance(data, bytes):  # works on both py2 and 3
                 self._raw = data
                 self.tid = netint(data[0:2])
                 self.flags = netint(data[2:4])
