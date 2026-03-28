@@ -271,7 +271,8 @@ def serve(port=SERVER_PORT):
                 logging.debug('short-circuiting query for %s', record.qname)
                 response.records[1].append(
                     DNSRecord(
-                        [hosts[record.qtype], record.qtype, INTERNET_CLASS]
+                        [hosts[record.qtype][record.qname],
+                         record.qtype, INTERNET_CLASS]
                     )
                 )
                 # now remove this record from query
