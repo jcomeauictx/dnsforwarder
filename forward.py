@@ -16,14 +16,14 @@ this documented anywhere, but observed it in `ngrep -x` output.
 '''
 # pylint: disable=bad-option-value, consider-using-f-string
 # pylint: disable=consider-using-enumerate
-# pylint: disable=bad-option-value, redundant-u-string-prefix
 from __future__ import unicode_literals, with_statement
 import sys, os, socket, struct, re, logging  # pylint: disable=multiple-imports
 from hostsfile import hostsfile
 
 logging.basicConfig(level=logging.DEBUG if __debug__ else logging.WARN)
 logging.quiet = lambda *args, **kwargs: logging.log(
-    logging.NOTSET, *args, **kwargs
+    logging.NOTSET if not os.getenv('VERBOSE') else logging.DEBUG,
+    *args, **kwargs
 )
 
 # flag field constants
@@ -171,6 +171,7 @@ class DNSRecord():  # pylint: disable=too-many-instance-attributes
             self._raw += intstr(self.ttl, length=4)
             # assuming rdata also is not None
             if isinstance(self.rdata, bytes):
+                logging.debug('rdata seen as bytes: %r', self.rdata)
                 rdata = self.rdata
             else:
                 if ':' in self.rdata:
@@ -195,7 +196,7 @@ class DNSMessage():  # pylint: disable=too-few-public-methods
         self.flags = 0
         self.records = [[], [], [], []]
         if data:
-            if isinstance(data, bytes):  # works on both py2 and 3
+            if isinstance(data, bytes):  # should work on both py2 and 3
                 self._raw = data
                 self.tid = netint(data[0:2])
                 self.flags = netint(data[2:4])
