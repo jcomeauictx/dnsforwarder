@@ -14,9 +14,14 @@ except NameError:
     unicode = str
 logging.basicConfig(level=logging.DEBUG if __debug__ else logging.INFO)
 
-def hostsfile():
+def hostsfile(suffix='.lan'):
     '''
     read in /etc/hosts and return a dict
+
+    ipv4 and ipv6 will be separated into separate dicts.
+    all hosts will be entered with and without the suffix,
+    but apparently iOS refuses to even attempt to resolve
+    hostnames without a dot.
     '''
     # according to hosts manpage, it is allowed to have two entries
     # for each hostname, one for each version of the IP protocol (v4 and v6)
@@ -40,6 +45,7 @@ def hostsfile():
                             hostname, hosts[protocol][hostname], parts[0]
                         )
                     hosts[protocol][hostname] = parts[0]
+                    hosts[protocol][hostname + suffix] = parts[0]
     return hosts
 
 if __name__ == '__main__':

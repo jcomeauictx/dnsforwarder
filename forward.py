@@ -320,7 +320,7 @@ def serve(  # pylint: disable=too-many-branches, too-many-statements
         )
         for i in range(len(message.records[0])):
             record = message.records[0][i]
-            if record.qname in hosts[record.qtype]:
+            if record.qname in hosts.get(record.qtype, {}):
                 logging.debug('short-circuiting query for %s', record.qname)
                 response.records[1].append(
                     DNSRecord(
